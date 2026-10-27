@@ -111,4 +111,91 @@ describe("TelemetryWorkerPool", () => {
 
         await Promise.all([firstTask, secondTask]);
     });
+
+    it("recovers when a worker cannot accept a task", async () => {
+        pool = new TelemetryWorkerPool(1, 10);
+
+        const internalPool = pool as unknown as {
+            workers: Array<{
+                worker: {
+                    postMessage: (data: unknown) => void;
+                };
+            }>;
+        };
+
+        const firstSlot = internalPool.workers[0];
+
+        if (!firstSlot) {
+            throw new Error("Expected a worker to be created");
+        }
+
+        // Simulate a worker dispatch failure.
+        firstSlot.worker.postMessage = () => {
+            throw new Error("Simulated worker failure");
+        };
+
+        await expect(
+            pool.process({
+                vehicleId: "VH-001",
+                latitude: 20,
+                longitude: 70,
+                speed: 30,
+            }),
+        ).rejects.toThrow("Simulated worker failure");
+
+        // The pool should create a replacement worker.
+        const reading = await pool.process({
+            vehicleId: "VH-002",
+            latitude: 21,
+            longitude: 71,
+            speed: 40,
+        });
+
+        expect(reading.speed).toBe(40);
+        expect(reading.latitude).toBe(21);
+    });
+
+    it("replaces a terminated worker and processes queued work", async () => {
+        pool = new TelemetryWorkerPool(1, 10);
+
+        const internalPool = pool as unknown as {
+            workers: Array<{
+                worker: {
+                    terminate: () => Promise<number>;
+                };
+            }>;
+        };
+
+        const firstSlot = internalPool.workers[0];
+
+        if (!firstSlot) {
+            throw new Error("Expected a worker to be created");
+        }
+
+        // Start one task and queue another behind it.
+        const failedTask = pool.process({
+            vehicleId: "VH-001",
+            latitude: 20,
+            longitude: 70,
+            speed: 30,
+        });
+
+        const queuedTask = pool.process({
+            vehicleId: "VH-002",
+            latitude: 21,
+            longitude: 71,
+            speed: 40,
+        });
+
+        // Terminate the real worker thread.
+        await firstSlot.worker.terminate();
+
+        await expect(failedTask).rejects.toThrow();
+
+        // The replacement worker should process the queued task.
+        const reading = await queuedTask;
+
+        expect(reading.speed).toBe(40);
+        expect(reading.latitude).toBe(21);
+    });
 });
