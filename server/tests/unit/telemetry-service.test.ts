@@ -33,6 +33,7 @@ import {
     addTelemetryReading,
     closeTelemetryWorkerPool,
     getBucketStart,
+    getTelemetryByTimeRange,
     processTelemetry,
 } from "../../src/services/telemetry.service.js";
 
@@ -64,6 +65,7 @@ describe("Telemetry service", () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
+        mocks.bucketFind.mockReset();
 
         vehicle = {
             _id: vehicleObjectId,
@@ -195,5 +197,88 @@ describe("Telemetry service", () => {
         ).rejects.toThrow("Vehicle save failed");
 
         expect(mocks.bucketFindOneAndUpdate).toHaveBeenCalledOnce();
+    });
+    it("queries telemetry for the correct vehicle and time range", async () => {
+        const start = new Date("2026-10-27T12:15:00.000Z");
+        const end = new Date("2026-10-27T14:45:00.000Z");
+
+        const expectedBuckets = [
+            { bucketStart: new Date("2026-10-27T12:00:00.000Z") },
+            { bucketStart: new Date("2026-10-27T13:00:00.000Z") },
+        ];
+
+        const lean = vi.fn().mockResolvedValue(expectedBuckets);
+        const sort = vi.fn().mockReturnValue({ lean });
+
+        mocks.bucketFind.mockReturnValue({ sort });
+
+        const result = await getTelemetryByTimeRange(
+            vehicleObjectId,
+            start,
+            end,
+        );
+
+        expect(mocks.bucketFind).toHaveBeenCalledWith({
+            vehicleId: vehicleObjectId,
+            bucketStart: {
+                $gte: getBucketStart(start),
+                $lte: getBucketStart(end),
+            },
+        });
+
+        expect(sort).toHaveBeenCalledWith({ bucketStart: 1 });
+        expect(lean).toHaveBeenCalledOnce();
+        expect(result).toEqual(expectedBuckets);
+    });
+
+    it("sorts telemetry buckets in ascending time order", async () => {
+        const lean = vi.fn().mockResolvedValue([]);
+        const sort = vi.fn().mockReturnValue({ lean });
+
+        mocks.bucketFind.mockReturnValue({ sort });
+
+        await getTelemetryByTimeRange(
+            vehicleObjectId,
+            new Date("2026-10-27T12:00:00.000Z"),
+            new Date("2026-10-27T15:00:00.000Z"),
+        );
+
+        expect(sort).toHaveBeenCalledWith({ bucketStart: 1 });
+    });
+
+    it("uses UTC hourly boundaries for the requested time range", async () => {
+        const start = new Date("2026-10-27T12:34:56.000Z");
+        const end = new Date("2026-10-27T14:59:59.000Z");
+
+        const lean = vi.fn().mockResolvedValue([]);
+        const sort = vi.fn().mockReturnValue({ lean });
+
+        mocks.bucketFind.mockReturnValue({ sort });
+
+        await getTelemetryByTimeRange(vehicleObjectId, start, end);
+
+        expect(mocks.bucketFind).toHaveBeenCalledWith({
+            vehicleId: vehicleObjectId,
+            bucketStart: {
+                $gte: new Date("2026-10-27T12:00:00.000Z"),
+                $lte: new Date("2026-10-27T14:00:00.000Z"),
+            },
+        });
+    });
+
+    it("propagates database query errors", async () => {
+        const databaseError = new Error("Telemetry query failed");
+
+        mocks.bucketFind.mockImplementation(() => {
+            throw databaseError;
+        });
+
+        await expect(
+            getTelemetryByTimeRange(
+                vehicleObjectId,
+                new Date("2026-10-27T12:00:00.000Z"),
+                new Date("2026-10-27T14:00:00.000Z"),
+            ),
+        ).rejects.toThrow("Telemetry query failed");
     });
 });
