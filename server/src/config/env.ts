@@ -1,17 +1,27 @@
-import dotenv from "dotenv"
-dotenv.config()
+import dotenv from "dotenv";
 
-if (!process.env.MONGO_URI) {
-    throw new Error("Database url is not define")
+dotenv.config();
+
+const mongoUri = process.env.MONGO_URI?.trim();
+const rawPort = process.env.PORT?.trim();
+
+if (!mongoUri) {
+    throw new Error("MONGO_URI is not defined");
 }
 
-if (!process.env.PORT) {
-    throw new Error("Port is not define")
+if (!rawPort) {
+    throw new Error("PORT is not defined");
+}
+
+const port = Number(rawPort);
+
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("PORT must be a valid TCP port between 1 and 65535");
 }
 
 const config = {
-    MONGO_URI: process.env.MONGO_URI,
-    PORT: process.env.PORT
-}
+    MONGO_URI: mongoUri,
+    PORT: port,
+};
 
-export default config
+export default config;

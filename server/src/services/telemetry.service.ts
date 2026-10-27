@@ -3,7 +3,25 @@ import { Vehicle } from "../models/vehicle.model.js";
 import { TelemetryBucket } from "../models/telemetry.model.js";
 import type { ITelemetryReading } from "../types/telemetry.types.js";
 import type { TelemetryRequestBody } from "../types/telemetry-request.types.js";
+import { TelemetryWorkerPool } from "../workers/worker-pool.js";
 
+let telemetryWorkerPool: TelemetryWorkerPool | undefined;
+
+const getTelemetryWorkerPool = (): TelemetryWorkerPool => {
+    if (!telemetryWorkerPool) {
+        telemetryWorkerPool = new TelemetryWorkerPool();
+    }
+
+    return telemetryWorkerPool;
+};
+
+export const closeTelemetryWorkerPool = async (): Promise<void> => {
+    if (telemetryWorkerPool) {
+        const pool = telemetryWorkerPool;
+        telemetryWorkerPool = undefined;
+        await pool.close();
+    }
+};
 
 export const getBucketStart = (timestamp: Date): Date => {
     const bucketStart = new Date(timestamp);
@@ -38,7 +56,7 @@ export const addTelemetryReading = async (
         },
         {
             upsert: true,
-            new: true,
+            returnDocument: "after",
         }
     );
 };
@@ -72,31 +90,18 @@ export const processTelemetry = async (
         latitude,
         longitude,
         speed,
-        heading,
         batteryLevel,
         fuelLevel,
-        timestamp,
     } = data;
 
-    const telemetryTimestamp = timestamp
-        ? new Date(timestamp)
-        : new Date();
+    const reading = await getTelemetryWorkerPool().process(data);
+    const telemetryTimestamp = reading.timestamp;
 
     const vehicle = await Vehicle.findOne({ vehicleId });
 
     if (!vehicle) {
         throw new Error("VEHICLE_NOT_FOUND");
     }
-
-    const reading: ITelemetryReading = {
-        timestamp: telemetryTimestamp,
-        latitude,
-        longitude,
-        speed,
-        ...(heading !== undefined && { heading }),
-        ...(batteryLevel !== undefined && { batteryLevel }),
-        ...(fuelLevel !== undefined && { fuelLevel }),
-    };
 
     await addTelemetryReading(
         vehicle._id as Types.ObjectId,
