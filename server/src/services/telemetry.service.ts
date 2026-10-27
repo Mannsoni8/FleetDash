@@ -26,13 +26,12 @@ export const closeTelemetryWorkerPool = async (): Promise<void> => {
 export const getBucketStart = (timestamp: Date): Date => {
     const bucketStart = new Date(timestamp);
 
-    bucketStart.setMinutes(0);
-    bucketStart.setSeconds(0);
-    bucketStart.setMilliseconds(0);
+    bucketStart.setUTCMinutes(0);
+    bucketStart.setUTCSeconds(0);
+    bucketStart.setUTCMilliseconds(0);
 
     return bucketStart;
 };
-
 
 export const addTelemetryReading = async (
     vehicleId: Types.ObjectId,
