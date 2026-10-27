@@ -78,4 +78,37 @@ describe("TelemetryWorkerPool", () => {
             "Worker pool size must be a positive integer",
         );
     });
+
+    it("rejects tasks when the queue is full", async () => {
+        pool = new TelemetryWorkerPool(1, 1);
+
+        const firstTask = pool.process({
+            vehicleId: "VH-001",
+            latitude: 20,
+            longitude: 70,
+            speed: 30,
+        });
+
+        const secondTask = pool.process({
+            vehicleId: "VH-002",
+            latitude: 21,
+            longitude: 71,
+            speed: 40,
+        });
+
+        // The first task occupies the worker; the second fills the queue.
+        // A third task should be rejected because the queue is full.
+        const thirdTask = pool.process({
+            vehicleId: "VH-003",
+            latitude: 22,
+            longitude: 72,
+            speed: 50,
+        });
+
+        await expect(thirdTask).rejects.toThrow(
+            "Telemetry worker queue is full",
+        );
+
+        await Promise.all([firstTask, secondTask]);
+    });
 });
