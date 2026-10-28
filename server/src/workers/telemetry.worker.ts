@@ -16,6 +16,7 @@ port.on("message", (data: TelemetryRequestBody) => {
             : new Date();
 
         const result: ITelemetryReading = {
+            eventId: data.eventId,
             timestamp,
             latitude: data.latitude,
             longitude: data.longitude,

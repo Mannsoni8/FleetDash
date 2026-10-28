@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 
 export interface ITelemetryReading {
+    eventId: string;
     timestamp: Date;
     latitude: number;
     longitude: number;

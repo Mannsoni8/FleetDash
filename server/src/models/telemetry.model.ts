@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import type{
+import type {
   ITelemetryBucket,
   ITelemetryReading,
 } from "../types/telemetry.types.js";
@@ -47,6 +47,12 @@ const telemetryReadingSchema = new Schema<ITelemetryReading>(
       type: Number,
       min: 0,
       max: 100,
+    },
+    
+    eventId: {
+      type: String,
+      required: true,
+      trim: true,
     },
   },
   {

@@ -4,6 +4,7 @@ export const validateTelemetry = (
     body: TelemetryRequestBody
 ): string | null => {
     const {
+        eventId,
         vehicleId,
         latitude,
         longitude,
@@ -16,6 +17,14 @@ export const validateTelemetry = (
 
     if (!vehicleId || typeof vehicleId !== "string") {
         return "vehicleId is required";
+    }
+
+    if (
+        typeof eventId !== "string" ||
+        eventId.trim().length === 0 ||
+        eventId.length > 128
+    ) {
+        return "eventId must be a non-empty string of at most 128 characters";
     }
 
     if (
