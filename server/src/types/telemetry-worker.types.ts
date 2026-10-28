@@ -1,4 +1,3 @@
-
 import type { ITelemetryReading } from "./telemetry.types.js";
 
 export type WorkerResponse =

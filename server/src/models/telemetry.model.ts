@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import type{
+import type {
   ITelemetryBucket,
   ITelemetryReading,
 } from "../types/telemetry.types.js";
@@ -48,6 +48,12 @@ const telemetryReadingSchema = new Schema<ITelemetryReading>(
       min: 0,
       max: 100,
     },
+
+    eventId: {
+      type: String,
+      required: true,
+      trim: true,
+    },
   },
   {
     _id: false,
@@ -84,10 +90,10 @@ const telemetryBucketSchema = new Schema<ITelemetryBucket>(
   }
 );
 
-telemetryBucketSchema.index({
-  vehicleId: 1,
-  bucketStart: 1,
-});
+telemetryBucketSchema.index(
+  { vehicleId: 1, bucketStart: 1 },
+  { unique: true, name: "unique_vehicle_telemetry_bucket" }
+);
 
 export const TelemetryBucket = model<ITelemetryBucket>(
   "TelemetryBucket",

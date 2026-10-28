@@ -1,4 +1,5 @@
 export interface TelemetryRequestBody {
+    eventId: string;
     vehicleId: string;
     latitude: number;
     longitude: number;

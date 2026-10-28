@@ -24,7 +24,7 @@ export class TelemetryWorkerPool {
     private closed = false;
 
     constructor(
-         size = Math.max(
+        size = Math.max(
             1,
             Math.min(4, availableParallelism() - 1),
         ),
@@ -194,8 +194,22 @@ export class TelemetryWorkerPool {
                 );
             }
 
+            // Never leave queued tasks hanging when no worker is available.
+            if (this.workers.length === 0) {
+                const unavailableError = new Error(
+                    "No telemetry workers are available",
+                );
+
+                for (const task of this.queue.splice(0)) {
+                    task.reject(unavailableError);
+                }
+
+                return;
+            }
+
             this.runNext();
         }
+
     }
 
     async close(): Promise<void> {
