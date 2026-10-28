@@ -14,6 +14,9 @@ port.on("message", (data: TelemetryRequestBody) => {
         const timestamp = data.timestamp
             ? new Date(data.timestamp)
             : new Date();
+        if (Number.isNaN(timestamp.getTime())) {
+            throw new Error("Invalid telemetry timestamp");
+        }
 
         const result: ITelemetryReading = {
             eventId: data.eventId,

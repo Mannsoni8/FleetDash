@@ -1,8 +1,12 @@
 import type { TelemetryRequestBody } from "../types/telemetry-request.types.js";
 
 export const validateTelemetry = (
-    body: TelemetryRequestBody
+    body: TelemetryRequestBody,
 ): string | null => {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return "Request body must be a JSON object";
+    }
+
     const {
         eventId,
         vehicleId,
@@ -15,8 +19,8 @@ export const validateTelemetry = (
         timestamp,
     } = body;
 
-    if (!vehicleId || typeof vehicleId !== "string") {
-        return "vehicleId is required";
+    if (typeof vehicleId !== "string" || vehicleId.trim().length === 0) {
+        return "vehicleId must be a non-empty string";
     }
 
     if (
@@ -27,19 +31,11 @@ export const validateTelemetry = (
         return "eventId must be a non-empty string of at most 128 characters";
     }
 
-    if (
-        !Number.isFinite(latitude) ||
-        latitude < -90 ||
-        latitude > 90
-    ) {
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
         return "latitude must be between -90 and 90";
     }
 
-    if (
-        !Number.isFinite(longitude) ||
-        longitude < -180 ||
-        longitude > 180
-    ) {
+    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
         return "longitude must be between -180 and 180";
     }
 
@@ -74,9 +70,10 @@ export const validateTelemetry = (
 
     if (
         timestamp !== undefined &&
-        Number.isNaN(new Date(timestamp).getTime())
+        (typeof timestamp !== "string" ||
+            Number.isNaN(new Date(timestamp).getTime()))
     ) {
-        return "timestamp must be a valid date";
+        return "timestamp must be a valid date string";
     }
 
     return null;

@@ -476,4 +476,59 @@ describe("Telemetry service", () => {
         expect(mocks.vehicleUpdateOne).toHaveBeenCalledTimes(2);
         expect(mocks.eventUpdateOne).toHaveBeenCalledOnce();
     });
+
+    it("uses a timestamp guard so stale telemetry cannot overwrite newer vehicle state", async () => {
+        const olderTimestamp = new Date("2026-10-27T10:00:00.000Z");
+
+        const staleReading = {
+            ...reading,
+            timestamp: olderTimestamp,
+        };
+
+        mocks.workerProcess.mockResolvedValue(staleReading);
+
+        mocks.eventFindOne
+            .mockReset()
+            .mockResolvedValue({
+                _id: new Types.ObjectId(),
+                vehicleId: vehicleObjectId,
+                eventId: "evt-stale-001",
+                reading: staleReading,
+                status: "pending",
+            });
+
+        // MongoDB matches no vehicle because its lastTelemetryAt is newer.
+        mocks.vehicleUpdateOne.mockResolvedValue({ matchedCount: 0 });
+
+        await processTelemetry({
+            eventId: "evt-stale-001",
+            vehicleId: "VH-001",
+            latitude: 22.3072,
+            longitude: 73.1812,
+            speed: 60,
+        });
+
+        expect(mocks.vehicleUpdateOne).toHaveBeenCalledWith(
+            {
+                _id: vehicleObjectId,
+                $or: [
+                    { lastTelemetryAt: null },
+                    { lastTelemetryAt: { $lt: olderTimestamp } },
+                ],
+            },
+            {
+                $set: expect.objectContaining({
+                    lastTelemetryAt: olderTimestamp,
+                }),
+            }
+        );
+
+        // A stale reading is still retained in history and completed.
+        expect(mocks.bucketExists).toHaveBeenCalled();
+        expect(mocks.eventUpdateOne).toHaveBeenCalledWith(
+            { _id: expect.any(Types.ObjectId), status: "pending" },
+            { $set: { status: "completed" } }
+        );
+    });
+
 });

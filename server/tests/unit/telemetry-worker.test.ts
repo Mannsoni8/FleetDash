@@ -198,4 +198,19 @@ describe("TelemetryWorkerPool", () => {
         expect(reading.speed).toBe(40);
         expect(reading.latitude).toBe(21);
     });
+
+    it("rejects telemetry with an invalid timestamp", async () => {
+        pool = new TelemetryWorkerPool(1, 10);
+
+        await expect(
+            pool.process({
+                vehicleId: "VH-001",
+                eventId: "evt-invalid-timestamp",
+                latitude: 20,
+                longitude: 70,
+                speed: 30,
+                timestamp: "not-a-valid-date",
+            }),
+        ).rejects.toThrow("Invalid telemetry timestamp");
+    });
 });
