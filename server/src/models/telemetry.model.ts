@@ -48,7 +48,7 @@ const telemetryReadingSchema = new Schema<ITelemetryReading>(
       min: 0,
       max: 100,
     },
-    
+
     eventId: {
       type: String,
       required: true,
@@ -90,10 +90,10 @@ const telemetryBucketSchema = new Schema<ITelemetryBucket>(
   }
 );
 
-telemetryBucketSchema.index({
-  vehicleId: 1,
-  bucketStart: 1,
-});
+telemetryBucketSchema.index(
+  { vehicleId: 1, bucketStart: 1 },
+  { unique: true, name: "unique_vehicle_telemetry_bucket" }
+);
 
 export const TelemetryBucket = model<ITelemetryBucket>(
   "TelemetryBucket",

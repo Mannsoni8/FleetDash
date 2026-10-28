@@ -3,8 +3,14 @@ import { Types } from "mongoose";
 
 const mocks = vi.hoisted(() => ({
     vehicleFindOne: vi.fn(),
+    vehicleUpdateOne: vi.fn(),
     bucketFindOneAndUpdate: vi.fn(),
+    bucketUpdateOne: vi.fn(),
+    bucketExists: vi.fn(),
     bucketFind: vi.fn(),
+    eventFindOne: vi.fn(),
+    eventCreate: vi.fn(),
+    eventUpdateOne: vi.fn(),
     workerProcess: vi.fn(),
     workerClose: vi.fn(),
 }));
@@ -12,13 +18,24 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../src/models/vehicle.model.js", () => ({
     Vehicle: {
         findOne: mocks.vehicleFindOne,
+        updateOne: mocks.vehicleUpdateOne,
     },
 }));
 
 vi.mock("../../src/models/telemetry.model.js", () => ({
     TelemetryBucket: {
         findOneAndUpdate: mocks.bucketFindOneAndUpdate,
+        updateOne: mocks.bucketUpdateOne,
+        exists: mocks.bucketExists,
         find: mocks.bucketFind,
+    },
+}));
+
+vi.mock("../../src/models/telemetry-event.model.js", () => ({
+    TelemetryEvent: {
+        findOne: mocks.eventFindOne,
+        create: mocks.eventCreate,
+        updateOne: mocks.eventUpdateOne,
     },
 }));
 
@@ -42,6 +59,7 @@ describe("Telemetry service", () => {
     const vehicleObjectId = new Types.ObjectId();
 
     const reading = {
+        eventId: "evt-test-001",
         timestamp,
         latitude: 22.3072,
         longitude: 73.1812,
@@ -63,9 +81,9 @@ describe("Telemetry service", () => {
         save: ReturnType<typeof vi.fn>;
     };
 
+
     beforeEach(() => {
         vi.resetAllMocks();
-        mocks.bucketFind.mockReset();
 
         vehicle = {
             _id: vehicleObjectId,
@@ -79,11 +97,34 @@ describe("Telemetry service", () => {
             save: vi.fn().mockResolvedValue(undefined),
         };
 
+        const eventRecord = {
+            _id: new Types.ObjectId(),
+            vehicleId: vehicleObjectId,
+            eventId: "evt-test-001",
+            reading,
+            status: "pending",
+        };
+
         mocks.workerProcess.mockResolvedValue(reading);
         mocks.vehicleFindOne.mockResolvedValue(vehicle);
+
+        // First lookup: event does not exist.
+        // Second lookup: the newly created event is found.
+        mocks.eventFindOne
+            .mockResolvedValueOnce(null)
+            .mockResolvedValue(eventRecord);
+
+        mocks.eventCreate.mockResolvedValue(eventRecord);
+        mocks.eventUpdateOne.mockResolvedValue({ modifiedCount: 1 });
+
+        mocks.bucketUpdateOne.mockResolvedValue({ matchedCount: 1 });
+        mocks.bucketExists.mockResolvedValue({ _id: new Types.ObjectId() });
+
         mocks.bucketFindOneAndUpdate.mockResolvedValue({});
         mocks.workerClose.mockResolvedValue(undefined);
+        mocks.vehicleUpdateOne.mockResolvedValue({ matchedCount: 1 });
     });
+
 
     afterEach(async () => {
         await closeTelemetryWorkerPool();
@@ -100,24 +141,50 @@ describe("Telemetry service", () => {
     it("saves a reading using the hourly bucket pattern", async () => {
         await addTelemetryReading(vehicleObjectId, reading);
 
-        expect(mocks.bucketFindOneAndUpdate).toHaveBeenCalledWith(
+
+        expect(mocks.bucketUpdateOne).toHaveBeenCalledTimes(2);
+
+        expect(mocks.bucketUpdateOne).toHaveBeenNthCalledWith(
+            1,
             {
                 vehicleId: vehicleObjectId,
                 bucketStart: getBucketStart(timestamp),
             },
             {
-                $push: { readings: reading },
-                $inc: { readingCount: 1 },
+                $setOnInsert: {
+                    vehicleId: vehicleObjectId,
+                    bucketStart: getBucketStart(timestamp),
+                    readings: [],
+                    readingCount: 0,
+                },
+            },
+            { upsert: true }
+        );
+
+        expect(mocks.bucketUpdateOne).toHaveBeenNthCalledWith(
+            2,
+            {
+                vehicleId: vehicleObjectId,
+                bucketStart: getBucketStart(timestamp),
+                "readings.eventId": { $ne: reading.eventId },
             },
             {
-                upsert: true,
-                returnDocument: "after",
-            },
+                $push: { readings: reading },
+                $inc: { readingCount: 1 },
+            }
         );
+
+        expect(mocks.bucketExists).toHaveBeenCalledWith({
+            vehicleId: vehicleObjectId,
+            bucketStart: getBucketStart(timestamp),
+            "readings.eventId": reading.eventId,
+        });
+
     });
 
     it("processes telemetry and updates the vehicle", async () => {
         const result = await processTelemetry({
+            eventId: "evt-test-001",
             vehicleId: "VH-001",
             latitude: 22.3072,
             longitude: 73.1812,
@@ -132,18 +199,39 @@ describe("Telemetry service", () => {
         });
 
         expect(mocks.workerProcess).toHaveBeenCalledOnce();
-        expect(mocks.bucketFindOneAndUpdate).toHaveBeenCalledOnce();
+        expect(mocks.bucketUpdateOne).toHaveBeenCalledTimes(2);
 
-        expect(vehicle.currentLocation).toEqual({
-            latitude: 22.3072,
-            longitude: 73.1812,
-        });
-        expect(vehicle.currentSpeed).toBe(60);
-        expect(vehicle.lastTelemetryAt).toEqual(timestamp);
-        expect(vehicle.status).toBe("online");
-        expect(vehicle.batteryLevel).toBe(85);
-        expect(vehicle.fuelLevel).toBe(70);
-        expect(vehicle.save).toHaveBeenCalledOnce();
+
+        expect(mocks.bucketUpdateOne).toHaveBeenCalledTimes(2);
+
+        expect(mocks.vehicleUpdateOne).toHaveBeenCalledWith(
+            {
+                _id: vehicleObjectId,
+                $or: [
+                    { lastTelemetryAt: null },
+                    { lastTelemetryAt: { $lt: timestamp } },
+                ],
+            },
+            {
+                $set: {
+                    currentLocation: {
+                        latitude: 22.3072,
+                        longitude: 73.1812,
+                    },
+                    currentSpeed: 60,
+                    lastTelemetryAt: timestamp,
+                    status: "online",
+                    batteryLevel: 85,
+                    fuelLevel: 70,
+                },
+            }
+        );
+
+        expect(mocks.eventUpdateOne).toHaveBeenCalledWith(
+            { _id: expect.any(Types.ObjectId), status: "pending" },
+            { $set: { status: "completed" } }
+        );
+
 
         expect(result).toEqual({
             vehicleId: "VH-001",
@@ -156,6 +244,7 @@ describe("Telemetry service", () => {
 
         await expect(
             processTelemetry({
+                eventId: "evt-test-001",
                 vehicleId: "UNKNOWN",
                 latitude: 22,
                 longitude: 73,
@@ -168,12 +257,13 @@ describe("Telemetry service", () => {
     });
 
     it("does not update the vehicle when bucket persistence fails", async () => {
-        mocks.bucketFindOneAndUpdate.mockRejectedValue(
-            new Error("Database write failed"),
+        mocks.bucketUpdateOne.mockRejectedValueOnce(
+            new Error("Database write failed")
         );
 
         await expect(
             processTelemetry({
+                eventId: "evt-test-001",
                 vehicleId: "VH-001",
                 latitude: 22,
                 longitude: 73,
@@ -184,20 +274,25 @@ describe("Telemetry service", () => {
         expect(vehicle.save).not.toHaveBeenCalled();
     });
 
-    it("propagates an error when saving the vehicle fails", async () => {
-        vehicle.save.mockRejectedValue(new Error("Vehicle save failed"));
+    it("leaves the event pending when the vehicle update fails", async () => {
+        mocks.vehicleUpdateOne.mockRejectedValue(
+            new Error("Vehicle update failed")
+        );
 
         await expect(
             processTelemetry({
+                eventId: "evt-test-001",
                 vehicleId: "VH-001",
                 latitude: 22,
                 longitude: 73,
                 speed: 30,
-            }),
-        ).rejects.toThrow("Vehicle save failed");
+            })
+        ).rejects.toThrow("Vehicle update failed");
 
-        expect(mocks.bucketFindOneAndUpdate).toHaveBeenCalledOnce();
+        expect(mocks.bucketExists).toHaveBeenCalled();
+        expect(mocks.eventUpdateOne).not.toHaveBeenCalled();
     });
+
     it("queries telemetry for the correct vehicle and time range", async () => {
         const start = new Date("2026-10-27T12:15:00.000Z");
         const end = new Date("2026-10-27T14:45:00.000Z");
@@ -280,5 +375,105 @@ describe("Telemetry service", () => {
                 new Date("2026-10-27T14:00:00.000Z"),
             ),
         ).rejects.toThrow("Telemetry query failed");
+    });
+
+    it("does not persist a completed event again", async () => {
+        const completedEvent = {
+            _id: new Types.ObjectId(),
+            vehicleId: vehicleObjectId,
+            eventId: "evt-test-001",
+            reading,
+            status: "completed",
+        };
+
+        mocks.eventFindOne
+            .mockReset()
+            .mockResolvedValue(completedEvent);
+
+        const result = await processTelemetry({
+            eventId: "evt-test-001",
+            vehicleId: "VH-001",
+            latitude: 22.3072,
+            longitude: 73.1812,
+            speed: 60,
+        });
+
+        expect(result).toEqual({
+            vehicleId: "VH-001",
+            timestamp,
+        });
+
+        expect(mocks.eventCreate).not.toHaveBeenCalled();
+        expect(mocks.bucketUpdateOne).not.toHaveBeenCalled();
+        expect(mocks.vehicleUpdateOne).not.toHaveBeenCalled();
+    });
+
+    it("reuses the existing event after a duplicate-key race", async () => {
+        const existingEvent = {
+            _id: new Types.ObjectId(),
+            vehicleId: vehicleObjectId,
+            eventId: "evt-test-001",
+            reading,
+            status: "pending",
+        };
+
+        mocks.eventFindOne
+            .mockReset()
+            .mockResolvedValueOnce(null)
+            .mockResolvedValue(existingEvent);
+
+        mocks.eventCreate.mockRejectedValue(
+            Object.assign(new Error("Duplicate key"), { code: 11000 })
+        );
+
+        const result = await processTelemetry({
+            eventId: "evt-test-001",
+            vehicleId: "VH-001",
+            latitude: 22.3072,
+            longitude: 73.1812,
+            speed: 60,
+        });
+
+        expect(result.timestamp).toEqual(timestamp);
+        expect(mocks.eventCreate).toHaveBeenCalledOnce();
+        expect(mocks.bucketExists).toHaveBeenCalled();
+        expect(mocks.eventUpdateOne).toHaveBeenCalledOnce();
+    });
+
+    it("recovers a pending event after a failed vehicle update", async () => {
+        const pendingEvent = {
+            _id: new Types.ObjectId(),
+            vehicleId: vehicleObjectId,
+            eventId: "evt-test-001",
+            reading,
+            status: "pending",
+        };
+
+        mocks.eventFindOne
+            .mockReset()
+            .mockResolvedValue(pendingEvent);
+
+        mocks.vehicleUpdateOne
+            .mockRejectedValueOnce(new Error("Vehicle update failed"))
+            .mockResolvedValue({ matchedCount: 1 });
+
+        const request = {
+            eventId: "evt-test-001",
+            vehicleId: "VH-001",
+            latitude: 22.3072,
+            longitude: 73.1812,
+            speed: 60,
+        };
+
+        await expect(processTelemetry(request))
+            .rejects.toThrow("Vehicle update failed");
+
+        expect(mocks.eventUpdateOne).not.toHaveBeenCalled();
+
+        await processTelemetry(request);
+
+        expect(mocks.bucketExists).toHaveBeenCalledTimes(2);
+        expect(mocks.vehicleUpdateOne).toHaveBeenCalledTimes(2);
+        expect(mocks.eventUpdateOne).toHaveBeenCalledOnce();
     });
 });
