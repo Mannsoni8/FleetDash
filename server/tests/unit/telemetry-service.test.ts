@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     eventUpdateOne: vi.fn(),
     workerProcess: vi.fn(),
     workerClose: vi.fn(),
+    bucketAggregate: vi.fn(),
 }));
 
 vi.mock("../../src/models/vehicle.model.js", () => ({
@@ -28,6 +29,7 @@ vi.mock("../../src/models/telemetry.model.js", () => ({
         updateOne: mocks.bucketUpdateOne,
         exists: mocks.bucketExists,
         find: mocks.bucketFind,
+        aggregate: mocks.bucketAggregate,
     },
 }));
 
@@ -50,6 +52,7 @@ import {
     addTelemetryReading,
     closeTelemetryWorkerPool,
     getBucketStart,
+    getPreviousTelemetryReading,
     getTelemetryByTimeRange,
     processTelemetry,
 } from "../../src/services/telemetry.service.js";
@@ -530,5 +533,51 @@ describe("Telemetry service", () => {
             { $set: { status: "completed" } }
         );
     });
+    it("retrieves the most recent reading before the given timestamp", async () => {
+        const previousReading = {
+            ...reading,
+            eventId: "evt-previous",
+            timestamp: new Date("2026-10-27T11:45:00.000Z"),
+        };
 
+        mocks.bucketAggregate.mockResolvedValue([previousReading]);
+
+        const result = await getPreviousTelemetryReading(
+            vehicleObjectId,
+            timestamp,
+        );
+
+        expect(mocks.bucketAggregate).toHaveBeenCalledWith([
+            {
+                $match: {
+                    vehicleId: vehicleObjectId,
+                    bucketStart: {
+                        $lte: getBucketStart(timestamp),
+                    },
+                },
+            },
+            { $unwind: "$readings" },
+            {
+                $match: {
+                    "readings.timestamp": { $lt: timestamp },
+                },
+            },
+            { $sort: { "readings.timestamp": -1 } },
+            { $limit: 1 },
+            { $replaceRoot: { newRoot: "$readings" } },
+        ]);
+
+        expect(result).toEqual(previousReading);
+    });
+
+    it("returns null when no previous telemetry reading exists", async () => {
+        mocks.bucketAggregate.mockResolvedValue([]);
+
+        const result = await getPreviousTelemetryReading(
+            vehicleObjectId,
+            timestamp,
+        );
+
+        expect(result).toBeNull();
+    });
 });

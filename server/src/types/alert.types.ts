@@ -12,6 +12,8 @@ export type AlertSeverity =
   | "high"
   | "critical";
 
+export type GeofenceTransition = "entry" | "exit";
+
 export interface IAlertLocation {
   latitude: number;
   longitude: number;
@@ -19,26 +21,17 @@ export interface IAlertLocation {
 
 export interface IAlert {
   _id: Types.ObjectId;
-
   vehicleId: Types.ObjectId;
-
   geofenceId?: Types.ObjectId;
-
+  sourceEventId?: string;
+  transition?: GeofenceTransition;
   type: AlertType;
-
   severity: AlertSeverity;
-
   message: string;
-
   location: IAlertLocation;
-
   occurredAt: Date;
-
   resolved: boolean;
-
   resolvedAt: Date | null;
-
   createdAt: Date;
-
   updatedAt: Date;
 }

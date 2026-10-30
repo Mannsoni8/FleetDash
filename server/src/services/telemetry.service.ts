@@ -108,6 +108,49 @@ export const getTelemetryByTimeRange = async (
         .lean();
 };
 
+
+export const getPreviousTelemetryReading = async (
+    vehicleId: Types.ObjectId,
+    timestamp: Date,
+): Promise<ITelemetryReading | null> => {
+    const previousReadings =
+        await TelemetryBucket.aggregate<ITelemetryReading>([
+            {
+                $match: {
+                    vehicleId,
+                    bucketStart: {
+                        $lte: getBucketStart(timestamp),
+                    },
+                },
+            },
+            {
+                $unwind: "$readings",
+            },
+            {
+                $match: {
+                    "readings.timestamp": {
+                        $lt: timestamp,
+                    },
+                },
+            },
+            {
+                $sort: {
+                    "readings.timestamp": -1,
+                },
+            },
+            {
+                $limit: 1,
+            },
+            {
+                $replaceRoot: {
+                    newRoot: "$readings",
+                },
+            },
+        ]);
+
+    return previousReadings[0] ?? null;
+};
+
 export const processTelemetry = async (
     data: TelemetryRequestBody
 ): Promise<{ vehicleId: string; timestamp: Date }> => {

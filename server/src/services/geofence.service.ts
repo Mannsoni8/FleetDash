@@ -1,6 +1,9 @@
 import { Types } from "mongoose";
 import { Geofence } from "../models/geofence.model.js";
 import type { IGeofence } from "../types/geofence.types.js";
+import { createGeofenceTransitionAlert } from "./alert.service.js";
+import { isPointInsideGeofence } from "../geospatial/geofence.engine.js";
+import type { ITelemetryReading } from "../types/telemetry.types.js";
 
 export type CreateGeofenceInput = Pick<
     IGeofence,
@@ -62,17 +65,28 @@ const validateGeofence = (data: Partial<CreateGeofenceInput>): void => {
 
         for (const ring of rings) {
             for (const coordinate of ring) {
+                if (!Array.isArray(coordinate) || coordinate.length < 2) {
+                    throw new Error(
+                        "Polygon coordinates must be valid [longitude, latitude] pairs",
+                    );
+                }
+
+                const longitude = coordinate[0];
+                const latitude = coordinate[1];
+
                 if (
-                    !Array.isArray(coordinate) ||
-                    coordinate.length < 2 ||
-                    !Number.isFinite(coordinate[0]) ||
-                    !Number.isFinite(coordinate[1]) ||
-                    coordinate[0] < -180 ||
-                    coordinate[0] > 180 ||
-                    coordinate[1] < -90 ||
-                    coordinate[1] > 90
+                    longitude === undefined ||
+                    latitude === undefined ||
+                    !Number.isFinite(longitude) ||
+                    !Number.isFinite(latitude) ||
+                    longitude < -180 ||
+                    longitude > 180 ||
+                    latitude < -90 ||
+                    latitude > 90
                 ) {
-                    throw new Error("Polygon coordinates must be valid [longitude, latitude] pairs");
+                    throw new Error(
+                        "Polygon coordinates must be valid [longitude, latitude] pairs",
+                    );
                 }
             }
         }
@@ -110,11 +124,16 @@ export const updateGeofence = async (
         return null;
     }
 
-    const candidate = {
+    const candidate: Partial<CreateGeofenceInput> = {
         name: data.name ?? existing.name,
         geometry: data.geometry ?? existing.geometry,
-        radius: data.radius ?? existing.radius,
     };
+
+    const radius = data.radius ?? existing.radius;
+
+    if (radius !== undefined) {
+        candidate.radius = radius;
+    }
 
     validateGeofence(candidate);
 
@@ -130,4 +149,73 @@ export const deleteGeofence = async (id: string) => {
     }
 
     return Geofence.findByIdAndDelete(id);
+};
+
+
+interface EvaluateGeofenceTransitionsInput {
+    vehicleId: Types.ObjectId;
+    sourceEventId: string;
+    previousReading: ITelemetryReading | null;
+    currentReading: ITelemetryReading;
+}
+
+export const evaluateGeofenceTransitions = async (
+    data: EvaluateGeofenceTransitionsInput,
+): Promise<void> => {
+    // A first reading has no previous position, so no transition
+    // can be established reliably.
+    if (!data.previousReading) {
+        return;
+    }
+
+    const geofences = await Geofence.find({
+        isActive: true,
+    }).lean();
+
+    const previousPoint = {
+        latitude: data.previousReading.latitude,
+        longitude: data.previousReading.longitude,
+    };
+
+    const currentPoint = {
+        latitude: data.currentReading.latitude,
+        longitude: data.currentReading.longitude,
+    };
+
+    for (const geofence of geofences) {
+        const wasInside = isPointInsideGeofence(
+            previousPoint,
+            geofence.geometry,
+            geofence.radius,
+        );
+
+        const isInside = isPointInsideGeofence(
+            currentPoint,
+            geofence.geometry,
+            geofence.radius,
+        );
+
+        let transition: "entry" | "exit" | null = null;
+
+        if (!wasInside && isInside && geofence.alertOnEntry) {
+            transition = "entry";
+        } else if (wasInside && !isInside && geofence.alertOnExit) {
+            transition = "exit";
+        }
+
+        if (!transition) {
+            continue;
+        }
+
+        await createGeofenceTransitionAlert({
+            vehicleId: data.vehicleId,
+            geofenceId: geofence._id,
+            sourceEventId: data.sourceEventId,
+            transition,
+            geofenceName: geofence.name,
+            latitude: currentPoint.latitude,
+            longitude: currentPoint.longitude,
+            occurredAt: data.currentReading.timestamp,
+        });
+    }
 };

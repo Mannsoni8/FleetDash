@@ -47,8 +47,8 @@ export const isPointInsideGeofence = (
         const a =
             Math.sin(deltaLat / 2) ** 2 +
             Math.cos(lat1) *
-                Math.cos(lat2) *
-                Math.sin(deltaLon / 2) ** 2;
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) ** 2;
 
         const distance =
             2 *
@@ -79,11 +79,29 @@ export const isPointInsideGeofence = (
         i < ring.length;
         j = i++
     ) {
-        const [xi, yi] = ring[i];
-        const [xj, yj] = ring[j];
+        const current = ring[i];
+        const previous = ring[j];
+
+        if (!current || !previous) {
+            continue;
+        }
+
+        const xi = current[0];
+        const yi = current[1];
+        const xj = previous[0];
+        const yj = previous[1];
+
+        if (
+            xi === undefined ||
+            yi === undefined ||
+            xj === undefined ||
+            yj === undefined
+        ) {
+            continue;
+        }
 
         const crosses =
-            yi > y !== yj > y &&
+            (yi > y) !== (yj > y) &&
             x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
 
         if (crosses) {
