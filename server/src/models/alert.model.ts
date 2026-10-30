@@ -3,6 +3,7 @@ import type {
   IAlert,
   AlertType,
   AlertSeverity,
+  GeofenceTransition,
 } from "../types/alert.types.js";
 
 const alertSchema = new Schema<IAlert>(
@@ -18,6 +19,17 @@ const alertSchema = new Schema<IAlert>(
       type: Schema.Types.ObjectId,
       ref: "Geofence",
       index: true,
+    },
+
+    sourceEventId: {
+      type: String,
+      trim: true,
+      maxlength: 128,
+    },
+
+    transition: {
+      type: String,
+      enum: ["entry", "exit"] satisfies GeofenceTransition[],
     },
 
     type: {
@@ -55,7 +67,6 @@ const alertSchema = new Schema<IAlert>(
         type: Number,
         required: true,
       },
-
       longitude: {
         type: Number,
         required: true,
@@ -84,6 +95,25 @@ const alertSchema = new Schema<IAlert>(
   }
 );
 
+// One geofence transition alert per vehicle, event and geofence.
+alertSchema.index(
+  {
+    vehicleId: 1,
+    sourceEventId: 1,
+    geofenceId: 1,
+    transition: 1,
+  },
+  {
+    unique: true,
+    name: "unique_geofence_transition_alert",
+    partialFilterExpression: {
+      sourceEventId: { $type: "string" },
+      geofenceId: { $exists: true },
+      transition: { $exists: true },
+    },
+  }
+);
+
 alertSchema.index({
   vehicleId: 1,
   occurredAt: -1,
@@ -94,7 +124,4 @@ alertSchema.index({
   occurredAt: -1,
 });
 
-export const Alert = model<IAlert>(
-  "Alert",
-  alertSchema
-);
+export const Alert = model<IAlert>("Alert", alertSchema);

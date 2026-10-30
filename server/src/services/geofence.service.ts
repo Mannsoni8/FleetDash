@@ -62,17 +62,28 @@ const validateGeofence = (data: Partial<CreateGeofenceInput>): void => {
 
         for (const ring of rings) {
             for (const coordinate of ring) {
+                if (!Array.isArray(coordinate) || coordinate.length < 2) {
+                    throw new Error(
+                        "Polygon coordinates must be valid [longitude, latitude] pairs",
+                    );
+                }
+
+                const longitude = coordinate[0];
+                const latitude = coordinate[1];
+
                 if (
-                    !Array.isArray(coordinate) ||
-                    coordinate.length < 2 ||
-                    !Number.isFinite(coordinate[0]) ||
-                    !Number.isFinite(coordinate[1]) ||
-                    coordinate[0] < -180 ||
-                    coordinate[0] > 180 ||
-                    coordinate[1] < -90 ||
-                    coordinate[1] > 90
+                    longitude === undefined ||
+                    latitude === undefined ||
+                    !Number.isFinite(longitude) ||
+                    !Number.isFinite(latitude) ||
+                    longitude < -180 ||
+                    longitude > 180 ||
+                    latitude < -90 ||
+                    latitude > 90
                 ) {
-                    throw new Error("Polygon coordinates must be valid [longitude, latitude] pairs");
+                    throw new Error(
+                        "Polygon coordinates must be valid [longitude, latitude] pairs",
+                    );
                 }
             }
         }
@@ -110,11 +121,16 @@ export const updateGeofence = async (
         return null;
     }
 
-    const candidate = {
+    const candidate: Partial<CreateGeofenceInput> = {
         name: data.name ?? existing.name,
         geometry: data.geometry ?? existing.geometry,
-        radius: data.radius ?? existing.radius,
     };
+
+    const radius = data.radius ?? existing.radius;
+
+    if (radius !== undefined) {
+        candidate.radius = radius;
+    }
 
     validateGeofence(candidate);
 
