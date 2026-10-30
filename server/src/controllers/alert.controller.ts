@@ -16,6 +16,14 @@ const handleError = (res: Response, error: unknown): void => {
         return;
     }
 
+    if (
+        message === "Alert not found" ||
+        message === "Alert not found or already resolved"
+    ) {
+        res.status(404).json({ message });
+        return;
+    }
+
     console.error("Alert error:", error);
     res.status(500).json({ message: "Alert operation failed" });
 };
@@ -30,9 +38,9 @@ const parsePositiveInteger = (
     const parsed = Number(value);
 
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximum) {
-        throw new Error(`Value must be an integer between 1 and ${maximum}`);
+       throw new Error(`Invalid pagination value. Must be an integer between 1 and ${maximum}`);
     }
-
+    
     return parsed;
 };
 
@@ -62,12 +70,44 @@ export const getAlertsController = async (
             page,
             limit,
         };
+        const validSeverities = ["low", "medium", "high", "critical"] as const;
 
-        if (typeof req.query.severity === "string") {
+        const validTypes = [
+            "geofence_breach",
+            "overspeed",
+            "vehicle_offline",
+            "telemetry_anomaly",
+        ] as const;
+
+        if (req.query.severity !== undefined) {
+            if (
+                typeof req.query.severity !== "string" ||
+                !validSeverities.includes(
+                    req.query.severity as (typeof validSeverities)[number],
+                )
+            ) {
+                res.status(400).json({
+                    message: "Invalid severity value",
+                });
+                return;
+            }
+
             filters.severity = req.query.severity as NonNullable<GetAlertsFilters["severity"]>;
         }
 
-        if (typeof req.query.type === "string") {
+        if (req.query.type !== undefined) {
+            if (
+                typeof req.query.type !== "string" ||
+                !validTypes.includes(
+                    req.query.type as (typeof validTypes)[number],
+                )
+            ) {
+                res.status(400).json({
+                    message: "Invalid alert type",
+                });
+                return;
+            }
+
             filters.type = req.query.type as NonNullable<GetAlertsFilters["type"]>;
         }
 
