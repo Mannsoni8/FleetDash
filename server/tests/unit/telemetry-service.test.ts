@@ -8,12 +8,12 @@ const mocks = vi.hoisted(() => ({
     bucketUpdateOne: vi.fn(),
     bucketExists: vi.fn(),
     bucketFind: vi.fn(),
+    bucketAggregate: vi.fn(),
     eventFindOne: vi.fn(),
     eventCreate: vi.fn(),
     eventUpdateOne: vi.fn(),
     workerProcess: vi.fn(),
     workerClose: vi.fn(),
-    bucketAggregate: vi.fn(),
 }));
 
 vi.mock("../../src/models/vehicle.model.js", () => ({
@@ -87,6 +87,7 @@ describe("Telemetry service", () => {
 
     beforeEach(() => {
         vi.resetAllMocks();
+        mocks.bucketAggregate.mockResolvedValue([]);
 
         vehicle = {
             _id: vehicleObjectId,

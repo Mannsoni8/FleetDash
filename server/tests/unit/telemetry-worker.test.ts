@@ -14,6 +14,7 @@ describe("TelemetryWorkerPool", () => {
 
         const reading = await pool.process({
             vehicleId: "VH-001",
+            eventId: "evt-001",
             latitude: 22.3072,
             longitude: 73.1812,
             speed: 60,

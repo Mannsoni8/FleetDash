@@ -5,7 +5,7 @@ import { TelemetryEvent } from "../models/telemetry-event.model.js";
 import type { ITelemetryReading } from "../types/telemetry.types.js";
 import type { TelemetryRequestBody } from "../types/telemetry-request.types.js";
 import { TelemetryWorkerPool } from "../workers/worker-pool.js";
-
+import { evaluateGeofenceTransitions } from "./geofence.service.js";
 let telemetryWorkerPool: TelemetryWorkerPool | undefined;
 
 const getTelemetryWorkerPool = (): TelemetryWorkerPool => {
@@ -230,8 +230,8 @@ export const processTelemetry = async (
         vehicleUpdate.fuelLevel = reading.fuelLevel;
     }
 
-    // Older or equal timestamps cannot overwrite the current state.
-    await Vehicle.updateOne(
+    // Only a newer reading can update the vehicle.
+    const updateResult = await Vehicle.updateOne(
         {
             _id: vehicleObjectId,
             $or: [
@@ -239,13 +239,41 @@ export const processTelemetry = async (
                 { lastTelemetryAt: { $lt: reading.timestamp } },
             ],
         },
-        { $set: vehicleUpdate }
+        { $set: vehicleUpdate },
     );
 
-    // Mark complete only after both persistence operations succeed.
+    // A retry may find that the vehicle was already updated
+    // before an earlier processing attempt failed.
+    const vehicleAlreadyAtReading =
+        vehicle.lastTelemetryAt instanceof Date &&
+        vehicle.lastTelemetryAt.getTime() === reading.timestamp.getTime() &&
+        vehicle.currentLocation !== null &&
+        typeof vehicle.currentLocation === "object" &&
+        "latitude" in vehicle.currentLocation &&
+        "longitude" in vehicle.currentLocation &&
+        vehicle.currentLocation.latitude === reading.latitude &&
+        vehicle.currentLocation.longitude === reading.longitude;
+
+    const readingIsCurrent =
+        updateResult.matchedCount > 0 || vehicleAlreadyAtReading;
+
+    if (readingIsCurrent) {
+        const previousReading = await getPreviousTelemetryReading(
+            vehicleObjectId,
+            reading.timestamp,
+        );
+
+        await evaluateGeofenceTransitions({
+            vehicleId: vehicleObjectId,
+            sourceEventId: reading.eventId,
+            previousReading,
+            currentReading: reading,
+        });
+    }
+
     await TelemetryEvent.updateOne(
         { _id: event._id, status: "pending" },
-        { $set: { status: "completed" } }
+        { $set: { status: "completed" } },
     );
 
     return {
