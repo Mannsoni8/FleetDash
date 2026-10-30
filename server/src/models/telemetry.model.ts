@@ -83,6 +83,11 @@ const telemetryBucketSchema = new Schema<ITelemetryBucket>(
     readingCount: {
       type: Number,
       default: 0,
+      min: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: "readingCount must be an integer",
+      },
     },
   },
   {

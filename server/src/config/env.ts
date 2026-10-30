@@ -4,6 +4,11 @@ dotenv.config();
 
 const mongoUri = process.env.MONGO_URI?.trim();
 const rawPort = process.env.PORT?.trim();
+const redisUrl = process.env.REDIS_URL?.trim();
+
+if (!redisUrl) {
+    throw new Error("REDIS_URL is not defined");
+}
 
 if (!mongoUri) {
     throw new Error("MONGO_URI is not defined");
@@ -22,6 +27,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 const config = {
     MONGO_URI: mongoUri,
     PORT: port,
+    REDIS_URL: redisUrl,
 };
 
 export default config;
