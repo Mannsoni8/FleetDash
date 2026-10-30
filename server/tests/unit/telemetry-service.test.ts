@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
     eventUpdateOne: vi.fn(),
     workerProcess: vi.fn(),
     workerClose: vi.fn(),
+    evaluateGeofenceTransitions: vi.fn(),
+}));
+vi.mock("../../src/services/geofence.service.js", () => ({
+    evaluateGeofenceTransitions: mocks.evaluateGeofenceTransitions,
 }));
 
 vi.mock("../../src/models/vehicle.model.js", () => ({
@@ -88,6 +92,7 @@ describe("Telemetry service", () => {
     beforeEach(() => {
         vi.resetAllMocks();
         mocks.bucketAggregate.mockResolvedValue([]);
+        mocks.evaluateGeofenceTransitions.mockResolvedValue(undefined);
 
         vehicle = {
             _id: vehicleObjectId,
@@ -534,6 +539,8 @@ describe("Telemetry service", () => {
             { $set: { status: "completed" } }
         );
     });
+    expect(mocks.evaluateGeofenceTransitions).not.toHaveBeenCalled();
+
     it("retrieves the most recent reading before the given timestamp", async () => {
         const previousReading = {
             ...reading,
@@ -580,5 +587,53 @@ describe("Telemetry service", () => {
         );
 
         expect(result).toBeNull();
+    });
+
+
+    it("retries geofence evaluation when alert processing previously failed", async () => {
+        mocks.evaluateGeofenceTransitions
+            .mockRejectedValueOnce(new Error("Alert persistence failed"))
+            .mockResolvedValue(undefined);
+
+        const request = {
+            eventId: "evt-test-001",
+            vehicleId: "VH-001",
+            latitude: 22.3072,
+            longitude: 73.1812,
+            speed: 60,
+        };
+
+        // First attempt: vehicle update succeeds, alert processing fails.
+        mocks.vehicleUpdateOne
+            .mockResolvedValueOnce({ matchedCount: 1 })
+            .mockResolvedValueOnce({ matchedCount: 0 });
+            
+        await expect(processTelemetry(request))
+            .rejects.toThrow("Alert persistence failed");
+
+        expect(mocks.eventUpdateOne).not.toHaveBeenCalled();
+
+        // Simulate the vehicle state persisted by the first attempt.
+        vehicle.lastTelemetryAt = timestamp;
+        vehicle.currentLocation = {
+            latitude: reading.latitude,
+            longitude: reading.longitude,
+        };
+
+        // Second attempt: recognizes the already-updated vehicle
+        // and retries geofence evaluation.
+        await processTelemetry(request);
+
+        expect(mocks.evaluateGeofenceTransitions).toHaveBeenCalledTimes(2);
+
+        expect(mocks.evaluateGeofenceTransitions).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                vehicleId: vehicleObjectId,
+                sourceEventId: reading.eventId,
+                currentReading: reading,
+            }),
+        );
+
+        expect(mocks.eventUpdateOne).toHaveBeenCalledOnce();
     });
 });
