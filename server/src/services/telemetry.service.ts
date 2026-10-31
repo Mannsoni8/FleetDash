@@ -6,6 +6,9 @@ import type { ITelemetryReading } from "../types/telemetry.types.js";
 import type { TelemetryRequestBody } from "../types/telemetry-request.types.js";
 import { TelemetryWorkerPool } from "../workers/worker-pool.js";
 import { evaluateGeofenceTransitions } from "./geofence.service.js";
+import { publishRealtimeEvent } from "../pubsub/publisher.js";
+import { REALTIME_EVENTS } from "../types/realtime.types.js";
+
 let telemetryWorkerPool: TelemetryWorkerPool | undefined;
 
 const getTelemetryWorkerPool = (): TelemetryWorkerPool => {
@@ -195,12 +198,7 @@ export const processTelemetry = async (
         throw new Error("TELEMETRY_EVENT_CLAIM_FAILED");
     }
 
-    if (!event) {
-        throw new Error("TELEMETRY_EVENT_CLAIM_FAILED");
-    }
-
     const reading = event.reading as ITelemetryReading;
-    proposedReading = reading;
 
     if (event.status === "completed") {
         return {
@@ -269,6 +267,19 @@ export const processTelemetry = async (
             previousReading,
             currentReading: reading,
         });
+
+        // Publish only after telemetry and geofence processing succeeds.
+        await publishRealtimeEvent(
+            REALTIME_EVENTS.TELEMETRY_UPDATE,
+            {
+                eventId: reading.eventId,
+                vehicleId: vehicle.vehicleId,
+                latitude: reading.latitude,
+                longitude: reading.longitude,
+                speed: reading.speed,
+                timestamp: reading.timestamp.toISOString(),
+            },
+        );
     }
 
     await TelemetryEvent.updateOne(
