@@ -43,6 +43,7 @@ export const REALTIME_EVENTS = {
 } as const;
 
 export interface TelemetryUpdatePayload {
+    eventId: string;
     vehicleId: string;
     latitude: number;
     longitude: number;
