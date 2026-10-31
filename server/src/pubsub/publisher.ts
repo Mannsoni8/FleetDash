@@ -1,8 +1,5 @@
 import { redisPublisher } from "../config/redis.js";
-import {
-    REALTIME_EVENTS,
-    type RealtimeEventMap,
-} from "../types/realtime.types.js";
+import type { RealtimeEventMap } from "../types/realtime.types.js";
 
 const CHANNEL = "fleetdash:realtime";
 
