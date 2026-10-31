@@ -36,3 +36,30 @@ export type RealtimeEvent =
         channel: typeof REDIS_CHANNELS.ALERTS;
         payload: AlertRealtimeEvent;
     };
+
+export const REALTIME_EVENTS = {
+    TELEMETRY_UPDATE: "telemetry:update",
+    ALERT_CREATED: "alert:created",
+} as const;
+
+export interface TelemetryUpdatePayload {
+    vehicleId: string;
+    latitude: number;
+    longitude: number;
+    speed: number;
+    timestamp: string;
+}
+
+export interface AlertCreatedPayload {
+    alertId: string;
+    vehicleId: string;
+    type: string;
+    severity: string;
+    message: string;
+    occurredAt: string;
+}
+
+export interface RealtimeEventMap {
+    [REALTIME_EVENTS.TELEMETRY_UPDATE]: TelemetryUpdatePayload;
+    [REALTIME_EVENTS.ALERT_CREATED]: AlertCreatedPayload;
+}
