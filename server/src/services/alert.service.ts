@@ -3,6 +3,8 @@ import { Alert } from "../models/alert.model.js";
 import type {
   GeofenceTransition,
 } from "../types/alert.types.js";
+import { publishRealtimeEvent } from "../pubsub/publisher.js";
+import { REALTIME_EVENTS } from "../types/realtime.types.js";
 
 export interface GetAlertsFilters {
   severity?: "low" | "medium" | "high" | "critical";
@@ -94,6 +96,8 @@ export const getAlertsByVehicle = async (
   }
 
   const query = { vehicleId: new Types.ObjectId(vehicleId) };
+  
+  validatePagination(page, limit);
   const skip = (page - 1) * limit;
 
   const [alerts, total] = await Promise.all([
@@ -165,7 +169,7 @@ export const createGeofenceTransitionAlert = async (
       : `Vehicle exited geofence: ${data.geofenceName}`;
 
   try {
-    await Alert.updateOne(
+    const result = await Alert.updateOne(
       {
         vehicleId: data.vehicleId,
         sourceEventId: data.sourceEventId,
@@ -192,6 +196,27 @@ export const createGeofenceTransitionAlert = async (
       },
       { upsert: true },
     );
+
+    // Publish only when MongoDB inserted a new alert.
+    if (result.upsertedCount > 0 && result.upsertedId) {
+      try {
+        await publishRealtimeEvent(
+          REALTIME_EVENTS.ALERT_CREATED,
+          {
+            alertId: String(result.upsertedId),
+            vehicleId: data.vehicleId.toString(),
+            type: "geofence_breach",
+            severity: "medium",
+            message,
+            occurredAt: data.occurredAt.toISOString(),
+          },
+        );
+      } catch (error) {
+        // Alert is already persisted. Redis failure must not
+        // turn successful alert creation into a failed operation.
+        console.error("Failed to publish alert event:", error);
+      }
+    }
   } catch (error) {
     // A concurrent retry may win the unique-index race.
     if (isDuplicateKeyError(error)) {
