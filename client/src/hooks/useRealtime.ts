@@ -31,7 +31,7 @@ export const useRealtime = () => {
       socket.off("disconnect", handleDisconnect);
       socket.off("telemetry:update", handleTelemetry);
       socket.off("alert:created", handleAlert);
-      socket.disconnect();
+      // socket.disconnect();
     };
   }, []);
 

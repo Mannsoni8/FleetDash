@@ -1,4 +1,3 @@
-
 import {
   LayoutDashboard,
   Truck,
@@ -7,16 +6,18 @@ import {
   X,
 } from "lucide-react";
 
+import { NavLink } from "react-router-dom";
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 const navigation = [
-  { label: "Overview", href: "#overview", icon: LayoutDashboard },
-  { label: "Live Vehicles", href: "#vehicles", icon: Truck },
-  { label: "Alerts", href: "#alerts", icon: Bell },
-  { label: "Tracking", href: "#tracking", icon: MapPin },
+  { label: "Overview", href: "/", icon: LayoutDashboard },
+  { label: "Live Vehicles", href: "/vehicles", icon: Truck },
+  { label: "Alerts", href: "/alerts", icon: Bell },
+  { label: "Tracking", href: "/tracking", icon: MapPin },
 ];
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
@@ -41,8 +42,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             </div>
 
             <div>
-              <h1 className="text-xl font-bold tracking-tight">FleetDash</h1>
-              <p className="text-xs text-slate-400">Fleet Management</p>
+              <h1 className="text-xl font-bold tracking-tight">
+                FleetDash
+              </h1>
+              <p className="text-xs text-slate-400">
+                Fleet Management
+              </p>
             </div>
           </div>
 
@@ -60,26 +65,32 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             Workspace
           </p>
 
-          {navigation.map(({ label, href, icon: Icon }, index) => (
-            <a
+          {navigation.map(({ label, href, icon: Icon }) => (
+            <NavLink
               key={label}
-              href={href}
+              to={href}
+              end={href === "/"}
               onClick={onClose}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 transition ${
-                index === 0
-                  ? "bg-blue-50 font-medium text-blue-700"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-xl px-4 py-3 transition ${
+                  isActive
+                    ? "bg-blue-50 font-medium text-blue-700"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`
+              }
             >
               <Icon size={19} />
               {label}
-            </a>
+            </NavLink>
           ))}
         </nav>
 
         <div className="border-t border-slate-100 p-5">
           <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-sm font-semibold">FleetDash Backend</p>
+            <p className="text-sm font-semibold">
+              FleetDash Backend
+            </p>
+
             <p className="mt-2 flex items-center gap-2 text-xs text-slate-500">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               Realtime monitoring
