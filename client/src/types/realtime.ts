@@ -7,11 +7,17 @@ export interface TelemetryUpdate {
   timestamp: string;
 }
 
+export type RealtimeAlertSeverity =
+  | "low"
+  | "medium"
+  | "high"
+  | "critical";
+
 export interface AlertCreated {
   alertId: string;
   vehicleId: string;
   type: string;
-  severity: string;
+  severity: RealtimeAlertSeverity;
   message: string;
   occurredAt: string;
 }
