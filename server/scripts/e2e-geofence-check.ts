@@ -19,6 +19,7 @@ let createdGeofenceId: mongoose.Types.ObjectId | undefined;
 const socket = io(BASE_URL, {
     transports: ["websocket"],
     reconnection: false,
+    autoConnect: false,
 });
 
 const waitForAlert = (): Promise<Record<string, unknown>> => {
@@ -78,14 +79,29 @@ const main = async () => {
         await mongoose.connect(config.MONGO_URI);
         console.log("Test database connection established");
 
+        console.log("STEP 1: Connecting Socket.IO...");
+
         await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                socket.disconnect();
+                reject(new Error("Socket.IO connection timed out"));
+            }, 10000);
+
             socket.once("connect", () => {
+                clearTimeout(timeout);
                 console.log("Socket.IO client connected:", socket.id);
                 resolve();
             });
 
-            socket.once("connect_error", reject);
+            socket.once("connect_error", (error) => {
+                clearTimeout(timeout);
+                reject(error);
+            });
+
+            socket.connect();
         });
+
+        console.log("STEP 2: Socket connected");
 
         // Create an isolated test vehicle.
         const vehicleResponse = await postJson("/api/vehicles", {
@@ -155,14 +171,13 @@ const main = async () => {
         console.log("Socket.IO alert received:", receivedAlert);
 
         if (
-            receivedAlert.vehicleId !== vehicleId ||
+            receivedAlert.vehicleId !== String(createdVehicleId) ||
             receivedAlert.type !== "geofence_breach" ||
             receivedAlert.message !==
             `Vehicle entered geofence: FleetDash E2E Warehouse ${suffix}`
         ) {
             throw new Error("Received alert payload did not match expectations");
         }
-
         // Verify the alert was persisted in MongoDB.
         const storedAlert = await Alert.findOne({
             vehicleId: createdVehicleId,
@@ -199,7 +214,7 @@ const main = async () => {
         if (createdVehicleId) {
             await Vehicle.deleteOne({ _id: createdVehicleId });
         }
-        
+
         await mongoose.disconnect();
 
         console.log("Test data cleanup completed");
