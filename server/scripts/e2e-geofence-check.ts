@@ -186,6 +186,44 @@ const main = async () => {
             transition: "entry",
         }).lean();
 
+        // Third reading: vehicle exits the geofence.
+        const exitAlertPromise = waitForAlert();
+
+        await sendTelemetry(
+            `e2e-exit-${suffix}`,
+            22.3100,
+            73.1812,
+            new Date(baseTime + 120_000),
+        );
+
+        console.log("Exit telemetry accepted");
+
+        const receivedExitAlert = await exitAlertPromise;
+
+        console.log("Socket.IO exit alert received:", receivedExitAlert);
+
+        if (
+            receivedExitAlert.vehicleId !== String(createdVehicleId) ||
+            receivedExitAlert.type !== "geofence_breach" ||
+            receivedExitAlert.message !==
+            `Vehicle exited geofence: FleetDash E2E Warehouse ${suffix}`
+        ) {
+            throw new Error("Received exit alert payload did not match expectations");
+        }
+
+        const storedExitAlert = await Alert.findOne({
+            vehicleId: createdVehicleId,
+            geofenceId: createdGeofenceId,
+            sourceEventId: `e2e-exit-${suffix}`,
+            transition: "exit",
+        }).lean();
+
+        if (!storedExitAlert) {
+            throw new Error("Exit alert was not persisted in MongoDB");
+        }
+
+        console.log("MongoDB exit alert persistence verified");
+
         if (!storedAlert) {
             throw new Error("Alert was not persisted in MongoDB");
         }
