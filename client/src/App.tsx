@@ -6,6 +6,7 @@ import DashboardPage from "./features/dashboard/components/DashboardPage";
 import { useRealtime } from "./hooks/useRealtime";
 import { useVehicles } from "./features/vehicles/hooks/useVehicles";
 import { useAlerts } from "./features/alerts/hooks/useAlerts";
+import VehiclesPage from "./features/vehicles/pages/VehiclesPage";
 
 const App = () => {
   const realtime = useRealtime();
@@ -34,7 +35,15 @@ const App = () => {
 
         <Route
           path="/vehicles"
-          element={<div>Live Vehicles Page — Coming Next</div>}
+          element={
+            <VehiclesPage
+              vehicles={vehicleData.vehicles}
+              telemetry={realtime.telemetry}
+              loading={vehicleData.loading}
+              error={vehicleData.error}
+              onRefresh={vehicleData.refetch}
+            />
+          }
         />
 
         <Route path="/alerts" element={<div>Alerts Page — Coming Next</div>} />
