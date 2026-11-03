@@ -3,6 +3,11 @@ export interface AlertLocation {
   longitude: number;
 }
 
+export interface AlertVehicle {
+  _id: string;
+  vehicleId: string;
+}
+
 export type AlertSeverity =
   | "low"
   | "medium"
@@ -11,9 +16,14 @@ export type AlertSeverity =
 
 export type AlertTransition = "entry" | "exit";
 
-export interface Alert {
+export interface AlertVehicle {
   _id: string;
   vehicleId: string;
+}
+
+export interface Alert {
+  _id: string;
+  vehicleId: AlertVehicle | string;
   sourceEventId: string;
   geofenceId: string;
   transition: AlertTransition;

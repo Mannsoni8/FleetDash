@@ -41,7 +41,7 @@ const DashboardPage = ({
 
   // Merge historical and realtime alerts without duplicates.
   const alertMap = new Map(
-    historicalFormatted.map((alert) => [alert.alertId, alert])
+    historicalFormatted.map((alert) => [alert.alertId, alert]),
   );
 
   realtimeAlerts.forEach((alert) => {
@@ -52,20 +52,25 @@ const DashboardPage = ({
 
   const combinedAlerts = Array.from(alertMap.values()).sort(
     (a, b) =>
-      new Date(b.occurredAt).getTime() -
-      new Date(a.occurredAt).getTime()
+      new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
   );
 
+  const normalizedAlerts = combinedAlerts.map((alert) => ({
+    ...alert,
+    vehicleId:
+      typeof alert.vehicleId === "string"
+        ? alert.vehicleId
+        : alert.vehicleId.vehicleId,
+  }));
+
   const onlineVehicles = vehicles.filter(
-    (vehicle) => vehicle.status === "online"
+    (vehicle) => vehicle.status === "online",
   ).length;
 
   return (
     <>
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">
-          Fleet Overview
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-800">Fleet Overview</h1>
         <p className="mt-1 text-sm text-slate-500">
           Monitor your fleet activity and live vehicle updates.
         </p>
@@ -104,9 +109,7 @@ const DashboardPage = ({
         />
       </div>
 
-      {vehicleError && (
-        <p className="text-sm text-red-600">{vehicleError}</p>
-      )}
+      {vehicleError && <p className="text-sm text-red-600">{vehicleError}</p>}
 
       <TelemetryTable telemetry={telemetry} />
 
@@ -121,7 +124,7 @@ const DashboardPage = ({
           </p>
         )}
 
-        <RecentAlerts alerts={combinedAlerts} />
+        <RecentAlerts alerts={normalizedAlerts} />
       </section>
     </>
   );
