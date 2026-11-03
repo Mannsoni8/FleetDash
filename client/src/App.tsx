@@ -8,6 +8,7 @@ import { useVehicles } from "./features/vehicles/hooks/useVehicles";
 import { useAlerts } from "./features/alerts/hooks/useAlerts";
 import VehiclesPage from "./features/vehicles/pages/VehiclesPage";
 import AlertsPage from "./features/alerts/pages/AlertsPage";
+import TrackingPage from "./features/tracking/pages/TrackingPage";
 
 const App = () => {
   const realtime = useRealtime();
@@ -66,11 +67,7 @@ const App = () => {
             />
           }
         />
-
-        <Route
-          path="/tracking"
-          element={<div>Tracking Page — Coming Next</div>}
-        />
+        <Route path="/tracking" element={<TrackingPage />} />
       </Routes>
     </DashboardLayout>
   );

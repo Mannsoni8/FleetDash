@@ -1,4 +1,12 @@
-import { MapContainer, TileLayer, ZoomControl } from "react-leaflet";
+import { useEffect } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  ZoomControl,
+  useMap,
+} from "react-leaflet";
+import L from "leaflet";
+
 import type { TrackingVehicle } from "../types/tracking";
 import VehicleMarker from "./VehicleMarker";
 
@@ -7,6 +15,48 @@ interface FleetMapProps {
   selectedVehicleId: string | null;
   onSelectVehicle: (vehicleId: string) => void;
 }
+
+interface MapControllerProps {
+  vehicles: TrackingVehicle[];
+  selectedVehicle: TrackingVehicle | null;
+}
+
+const MapController = ({
+  vehicles,
+  selectedVehicle,
+}: MapControllerProps) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (selectedVehicle) {
+      const { latitude, longitude } = selectedVehicle.currentLocation;
+
+      map.flyTo([latitude, longitude], 15, {
+        duration: 1,
+      });
+
+      return;
+    }
+
+    if (vehicles.length === 0) return;
+
+    const bounds = L.latLngBounds(
+      vehicles.map((vehicle) => [
+        vehicle.currentLocation.latitude,
+        vehicle.currentLocation.longitude,
+      ] as [number, number])
+    );
+
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, {
+        padding: [50, 50],
+        maxZoom: 14,
+      });
+    }
+  }, [map, vehicles, selectedVehicle]);
+
+  return null;
+};
 
 const FleetMap = ({
   vehicles,
@@ -26,12 +76,15 @@ const FleetMap = ({
     );
   });
 
-  const defaultCenter: [number, number] = [22.3072, 73.1812];
+  const selectedVehicle =
+    validVehicles.find(
+      (vehicle) => vehicle.vehicleId === selectedVehicleId
+    ) ?? null;
 
   return (
     <div className="h-[550px] w-full overflow-hidden rounded-2xl border border-slate-200">
       <MapContainer
-        center={defaultCenter}
+        center={[22.3072, 73.1812]}
         zoom={12}
         scrollWheelZoom
         zoomControl={false}
@@ -44,6 +97,11 @@ const FleetMap = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        <MapController
+          vehicles={validVehicles}
+          selectedVehicle={selectedVehicle}
+        />
+
         {validVehicles.map((vehicle) => (
           <VehicleMarker
             key={vehicle.vehicleId}
@@ -53,10 +111,6 @@ const FleetMap = ({
           />
         ))}
       </MapContainer>
-
-      <div className="sr-only">
-        Showing {validVehicles.length} vehicles on the map.
-      </div>
     </div>
   );
 };
