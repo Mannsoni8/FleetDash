@@ -9,6 +9,7 @@ import { useAlerts } from "./features/alerts/hooks/useAlerts";
 import VehiclesPage from "./features/vehicles/pages/VehiclesPage";
 import AlertsPage from "./features/alerts/pages/AlertsPage";
 import TrackingPage from "./features/tracking/pages/TrackingPage";
+import GeofencesPage from "./features/geofences/pages/GeofencesPage";
 
 const App = () => {
   const realtime = useRealtime();
@@ -68,6 +69,7 @@ const App = () => {
           }
         />
         <Route path="/tracking" element={<TrackingPage />} />
+        <Route path="/geofences" element={<GeofencesPage />} />
       </Routes>
     </DashboardLayout>
   );
