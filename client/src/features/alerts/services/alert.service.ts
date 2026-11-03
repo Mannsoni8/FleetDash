@@ -11,3 +11,8 @@ export const getAlerts = async (
 
   return response.data;
 };
+
+export const resolveAlert = async (alertId: string) => {
+  const response = await api.patch(`/alerts/${alertId}/resolve`);
+  return response.data;
+};

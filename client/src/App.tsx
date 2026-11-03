@@ -7,6 +7,7 @@ import { useRealtime } from "./hooks/useRealtime";
 import { useVehicles } from "./features/vehicles/hooks/useVehicles";
 import { useAlerts } from "./features/alerts/hooks/useAlerts";
 import VehiclesPage from "./features/vehicles/pages/VehiclesPage";
+import AlertsPage from "./features/alerts/pages/AlertsPage";
 
 const App = () => {
   const realtime = useRealtime();
@@ -46,7 +47,23 @@ const App = () => {
           }
         />
 
-        <Route path="/alerts" element={<div>Alerts Page — Coming Next</div>} />
+        <Route
+          path="/alerts"
+          element={
+            <AlertsPage
+              alerts={alertData.alerts}
+              realtimeAlerts={realtime.alerts}
+              loading={alertData.loading}
+              error={alertData.error}
+              page={alertData.page}
+              totalPages={alertData.totalPages}
+              total={alertData.total}
+              onNextPage={alertData.nextPage}
+              onPreviousPage={alertData.previousPage}
+              onRefresh={alertData.refetch}
+            />
+          }
+        />
 
         <Route
           path="/tracking"
