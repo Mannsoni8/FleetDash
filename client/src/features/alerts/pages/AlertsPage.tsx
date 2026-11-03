@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   Bell,
@@ -57,6 +57,22 @@ const AlertsPage = ({
 }: AlertsPageProps) => {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [vehicleIdInput, setVehicleIdInput] = useState(filters.vehicleId ?? "");
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const searchValue = vehicleIdInput.trim();
+      const appliedValue = filters.vehicleId ?? "";
+
+      if (searchValue !== appliedValue) {
+        onUpdateFilters({ vehicleId: vehicleIdInput });
+      }
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [vehicleIdInput, filters.vehicleId, onUpdateFilters]);
 
   const handleResolve = async (alertId: string) => {
     try {
@@ -146,10 +162,8 @@ const AlertsPage = ({
           />
           <input
             type="text"
-            value={filters.vehicleId ?? ""}
-            onChange={(event) =>
-              onUpdateFilters({ vehicleId: event.target.value })
-            }
+            value={vehicleIdInput}
+            onChange={(event) => setVehicleIdInput(event.target.value)}
             placeholder="Search by Vehicle ID..."
             className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-400"
           />
@@ -236,7 +250,10 @@ const AlertsPage = ({
                       {alert.message}
                     </h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      Vehicle ID: {alert.vehicleId}
+                      Vehicle ID:{" "}
+                      {typeof alert.vehicleId === "string"
+                        ? alert.vehicleId
+                        : alert.vehicleId.vehicleId}
                     </p>
                   </div>
                 </div>

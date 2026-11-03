@@ -16,9 +16,14 @@ export type AlertSeverity =
 
 export type AlertTransition = "entry" | "exit";
 
+export interface AlertVehicle {
+  _id: string;
+  vehicleId: string;
+}
+
 export interface Alert {
   _id: string;
-  vehicleId: AlertVehicle;
+  vehicleId: AlertVehicle | string;
   sourceEventId: string;
   geofenceId: string;
   transition: AlertTransition;
