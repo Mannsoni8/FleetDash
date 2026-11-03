@@ -6,10 +6,7 @@ interface GeofenceListProps {
   onDelete: (id: string) => void;
 }
 
-const GeofenceList = ({
-  geofences,
-  onDelete,
-}: GeofenceListProps) => {
+const GeofenceList = ({ geofences, onDelete }: GeofenceListProps) => {
   if (geofences.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
@@ -36,7 +33,6 @@ const GeofenceList = ({
               <h3 className="font-semibold text-slate-800">
                 {geofence.name}
               </h3>
-
               <p className="mt-1 text-sm text-slate-500">
                 {geofence.description || "No description"}
               </p>
