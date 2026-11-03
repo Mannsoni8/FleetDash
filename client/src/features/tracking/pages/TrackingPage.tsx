@@ -1,22 +1,38 @@
 import { useState } from "react";
-import { MapPin, Truck, Activity, Wifi } from "lucide-react";
+import { MapPin, Truck, Activity, Wifi, Shield } from "lucide-react";
 
 import FleetMap from "../components/FleetMap";
 import VehicleDetailsPanel from "../components/VehicleDetailsPanel";
 import { useVehicleTracking } from "../hooks/useVehicleTracking";
+import { useGeofences } from "../../geofences/hooks/useGeofences";
 
 const TrackingPage = () => {
-  const { vehicles, loading, error } = useVehicleTracking();
+  const {
+    vehicles,
+    loading,
+    error,
+  } = useVehicleTracking();
 
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
-    null
-  );
+  const {
+    geofences,
+    loading: geofencesLoading,
+    error: geofencesError,
+  } = useGeofences();
+
+  const [selectedVehicleId, setSelectedVehicleId] =
+    useState<string | null>(null);
 
   const selectedVehicle =
-    vehicles.find((vehicle) => vehicle.vehicleId === selectedVehicleId) ?? null;
+    vehicles.find(
+      (vehicle) => vehicle.vehicleId === selectedVehicleId
+    ) ?? null;
 
   const onlineVehicles = vehicles.filter(
     (vehicle) => vehicle.status === "online"
+  ).length;
+
+  const activeGeofences = geofences.filter(
+    (geofence) => geofence.isActive
   ).length;
 
   return (
@@ -30,7 +46,7 @@ const TrackingPage = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
@@ -72,6 +88,20 @@ const TrackingPage = () => {
             </div>
           </div>
         </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-orange-50 p-3 text-orange-600">
+              <Shield size={22} />
+            </div>
+            <div>
+              <p className="text-sm text-slate-500">Active Geofences</p>
+              <h2 className="text-2xl font-bold text-slate-800">
+                {activeGeofences}
+              </h2>
+            </div>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -80,89 +110,104 @@ const TrackingPage = () => {
         </div>
       )}
 
-      {loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500">
-          Loading vehicle locations...
+      {geofencesError && (
+        <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
+          Geofence error: {geofencesError}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-          <div className="xl:col-span-2">
-            <div className="mb-3 flex items-center gap-2">
+      )}
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               <MapPin size={19} className="text-blue-600" />
               <h2 className="font-semibold text-slate-800">
                 Fleet Location Map
               </h2>
             </div>
 
+            <span className="text-xs text-slate-500">
+              {geofencesLoading
+                ? "Loading geofences..."
+                : `${activeGeofences} active geofences`}
+            </span>
+          </div>
+
+          {loading ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500">
+              Loading vehicle locations...
+            </div>
+          ) : (
             <FleetMap
               vehicles={vehicles}
               selectedVehicleId={selectedVehicleId}
               onSelectVehicle={setSelectedVehicleId}
+              geofences={geofences}
             />
-          </div>
+          )}
+        </div>
 
-          <div>
-            <h2 className="mb-3 font-semibold text-slate-800">
-              Vehicle Information
-            </h2>
+        <div>
+          <h2 className="mb-3 font-semibold text-slate-800">
+            Vehicle Information
+          </h2>
 
-            <VehicleDetailsPanel
-              vehicle={selectedVehicle}
-              onClose={() => setSelectedVehicleId(null)}
-            />
+          <VehicleDetailsPanel
+            vehicle={selectedVehicle}
+            onClose={() => setSelectedVehicleId(null)}
+          />
 
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
-              <h3 className="mb-3 font-semibold text-slate-800">
-                Fleet Vehicles
-              </h3>
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+            <h3 className="mb-3 font-semibold text-slate-800">
+              Fleet Vehicles
+            </h3>
 
-              <div className="space-y-2">
-                {vehicles.map((vehicle) => (
-                  <button
-                    key={vehicle.vehicleId}
-                    onClick={() =>
-                      setSelectedVehicleId(vehicle.vehicleId)
-                    }
-                    className={`w-full rounded-xl border p-3 text-left transition ${
-                      selectedVehicleId === vehicle.vehicleId
-                        ? "border-blue-300 bg-blue-50"
-                        : "border-slate-100 hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-slate-700">
-                        {vehicle.registrationNumber}
-                      </span>
+            <div className="space-y-2">
+              {vehicles.map((vehicle) => (
+                <button
+                  key={vehicle.vehicleId}
+                  onClick={() =>
+                    setSelectedVehicleId(vehicle.vehicleId)
+                  }
+                  className={`w-full rounded-xl border p-3 text-left transition ${
+                    selectedVehicleId === vehicle.vehicleId
+                      ? "border-blue-300 bg-blue-50"
+                      : "border-slate-100 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-700">
+                      {vehicle.registrationNumber}
+                    </span>
 
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          vehicle.status === "online"
-                            ? "bg-green-500"
-                            : vehicle.status === "idle"
-                              ? "bg-yellow-500"
-                              : vehicle.status === "maintenance"
-                                ? "bg-orange-500"
-                                : "bg-slate-400"
-                        }`}
-                      />
-                    </div>
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        vehicle.status === "online"
+                          ? "bg-green-500"
+                          : vehicle.status === "idle"
+                            ? "bg-yellow-500"
+                            : vehicle.status === "maintenance"
+                              ? "bg-orange-500"
+                              : "bg-slate-400"
+                      }`}
+                    />
+                  </div>
 
-                    <p className="mt-1 text-xs text-slate-500">
-                      {vehicle.vehicleId} · {vehicle.currentSpeed} km/h
-                    </p>
-                  </button>
-                ))}
-
-                {vehicles.length === 0 && (
-                  <p className="text-sm text-slate-500">
-                    No vehicles available.
+                  <p className="mt-1 text-xs text-slate-500">
+                    {vehicle.vehicleId} · {vehicle.currentSpeed} km/h
                   </p>
-                )}
-              </div>
+                </button>
+              ))}
+
+              {vehicles.length === 0 && (
+                <p className="text-sm text-slate-500">
+                  No vehicles available.
+                </p>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
