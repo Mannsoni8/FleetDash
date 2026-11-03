@@ -9,10 +9,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-import type {
-  Alert,
-  AlertSeverity,
-} from "../types/alert";
+import type { Alert, AlertSeverity } from "../types/alert";
+import type { AlertFilters } from "../services/alert.service";
 
 import type { AlertCreated } from "../../../types/realtime";
 import { resolveAlert } from "../services/alert.service";
@@ -25,13 +23,16 @@ interface AlertsPageProps {
   page: number;
   totalPages: number;
   total: number;
+  filters: AlertFilters;
+  onUpdateFilters: (newFilters: {
+    resolved?: boolean | null;
+    severity?: AlertSeverity | null;
+    vehicleId?: string;
+  }) => void;
   onNextPage: () => void;
   onPreviousPage: () => void;
   onRefresh: () => void;
 }
-
-type StatusFilter = "all" | "active" | "resolved";
-type SeverityFilter = "all" | AlertSeverity;
 
 const severityStyles: Record<AlertSeverity, string> = {
   low: "bg-blue-50 text-blue-700",
@@ -48,34 +49,14 @@ const AlertsPage = ({
   page,
   totalPages,
   total,
+  filters,
+  onUpdateFilters,
   onNextPage,
   onPreviousPage,
   onRefresh,
 }: AlertsPageProps) => {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>("all");
-  const [severityFilter, setSeverityFilter] =
-    useState<SeverityFilter>("all");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const filteredAlerts = alerts.filter((alert) => {
-    const matchesSearch = alert.vehicleId
-      .toLowerCase()
-      .includes(search.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "active" && !alert.resolved) ||
-      (statusFilter === "resolved" && alert.resolved);
-
-    const matchesSeverity =
-      severityFilter === "all" ||
-      alert.severity === severityFilter;
-
-    return matchesSearch && matchesStatus && matchesSeverity;
-  });
 
   const handleResolve = async (alertId: string) => {
     try {
@@ -92,8 +73,7 @@ const AlertsPage = ({
     }
   };
 
-  const formatDate = (date: string) =>
-    new Date(date).toLocaleString();
+  const formatDate = (date: string) => new Date(date).toLocaleString();
 
   return (
     <div className="space-y-6">
@@ -110,12 +90,8 @@ const AlertsPage = ({
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-        >
-          <RefreshCw
-            size={16}
-            className={loading ? "animate-spin" : ""}
-          />
+          className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
@@ -124,9 +100,7 @@ const AlertsPage = ({
       <section className="rounded-2xl border border-blue-100 bg-blue-50/50 p-5">
         <div className="mb-4 flex items-center gap-2">
           <Bell size={19} className="text-blue-600" />
-          <h2 className="font-semibold text-slate-800">
-            Live Incoming Alerts
-          </h2>
+          <h2 className="font-semibold text-slate-800">Live Incoming Alerts</h2>
           <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
             {realtimeAlerts.length}
           </span>
@@ -141,8 +115,7 @@ const AlertsPage = ({
             {realtimeAlerts.slice(0, 5).map((alert, index) => (
               <div
                 key={`${alert.alertId}-${index}`}
-                className="flex flex-col justify-between gap-2 rounded-xl border border-blue-100 bg-white p-4 sm:flex-row sm:items-center"
-              >
+                className="flex flex-col justify-between gap-2 rounded-xl border border-blue-100 bg-white p-4 sm:flex-row sm:items-center">
                 <div>
                   <p className="font-semibold text-slate-800">
                     {alert.message}
@@ -155,8 +128,7 @@ const AlertsPage = ({
                 <span
                   className={`w-fit rounded-full px-3 py-1 text-xs font-semibold capitalize ${
                     severityStyles[alert.severity]
-                  }`}
-                >
+                  }`}>
                   {alert.severity}
                 </span>
               </div>
@@ -174,32 +146,46 @@ const AlertsPage = ({
           />
           <input
             type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            value={filters.vehicleId ?? ""}
+            onChange={(event) =>
+              onUpdateFilters({ vehicleId: event.target.value })
+            }
             placeholder="Search by Vehicle ID..."
             className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-400"
           />
         </div>
 
         <select
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value as StatusFilter)
+          value={
+            filters.resolved === undefined
+              ? "all"
+              : filters.resolved
+                ? "resolved"
+                : "active"
           }
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-400"
-        >
+          onChange={(event) => {
+            const value = event.target.value;
+
+            onUpdateFilters({
+              resolved: value === "all" ? null : value === "resolved",
+            });
+          }}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-400">
           <option value="all">All Status</option>
           <option value="active">Active</option>
           <option value="resolved">Resolved</option>
         </select>
 
         <select
-          value={severityFilter}
-          onChange={(event) =>
-            setSeverityFilter(event.target.value as SeverityFilter)
-          }
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-400"
-        >
+          value={filters.severity ?? "all"}
+          onChange={(event) => {
+            const value = event.target.value;
+
+            onUpdateFilters({
+              severity: value === "all" ? null : (value as AlertSeverity),
+            });
+          }}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-400">
           <option value="all">All Severity</option>
           <option value="low">Low</option>
           <option value="medium">Medium</option>
@@ -225,26 +211,20 @@ const AlertsPage = ({
         <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500">
           Loading alerts...
         </div>
-      ) : filteredAlerts.length === 0 ? (
+      ) : alerts.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
-          <AlertTriangle
-            size={36}
-            className="mx-auto mb-3 text-slate-300"
-          />
-          <h3 className="font-semibold text-slate-700">
-            No alerts found
-          </h3>
+          <AlertTriangle size={36} className="mx-auto mb-3 text-slate-300" />
+          <h3 className="font-semibold text-slate-700">No alerts found</h3>
           <p className="mt-1 text-sm text-slate-500">
             Try changing your search or filters.
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredAlerts.map((alert) => (
+          {alerts.map((alert) => (
             <article
               key={alert._id}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
-            >
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                 <div className="flex items-start gap-3">
                   <div className="rounded-xl bg-red-50 p-3 text-red-600">
@@ -265,8 +245,7 @@ const AlertsPage = ({
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
                       severityStyles[alert.severity]
-                    }`}
-                  >
+                    }`}>
                     {alert.severity}
                   </span>
 
@@ -275,8 +254,7 @@ const AlertsPage = ({
                       alert.resolved
                         ? "bg-emerald-50 text-emerald-700"
                         : "bg-red-50 text-red-700"
-                    }`}
-                  >
+                    }`}>
                     {alert.resolved ? "Resolved" : "Active"}
                   </span>
                 </div>
@@ -313,8 +291,7 @@ const AlertsPage = ({
                   <button
                     onClick={() => handleResolve(alert._id)}
                     disabled={resolvingId === alert._id}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                  >
+                    className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50">
                     <CheckCircle size={16} />
                     {resolvingId === alert._id
                       ? "Resolving..."
@@ -341,16 +318,14 @@ const AlertsPage = ({
           <button
             onClick={onPreviousPage}
             disabled={page <= 1 || loading}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-          >
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40">
             Previous
           </button>
 
           <button
             onClick={onNextPage}
             disabled={page >= totalPages || loading}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-          >
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40">
             Next
           </button>
         </div>

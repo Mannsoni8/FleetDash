@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getAlerts } from "../services/alert.service";
-import type { Alert } from "../types/alert";
+import type { AlertFilters } from "../services/alert.service";
+import type { Alert, AlertSeverity } from "../types/alert";
 
 export const useAlerts = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -10,12 +11,14 @@ export const useAlerts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [filters, setFiltersState] = useState<AlertFilters>({});
+
   const fetchAlerts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await getAlerts(page, 20);
+      const response = await getAlerts(page, 20, filters);
 
       setAlerts(response.alerts);
       setTotalPages(response.pagination.totalPages);
@@ -26,11 +29,51 @@ export const useAlerts = () => {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, filters]);
 
   useEffect(() => {
     fetchAlerts();
   }, [fetchAlerts]);
+
+  const updateFilters = (newFilters: {
+    resolved?: boolean | null;
+    severity?: AlertSeverity | null;
+    vehicleId?: string;
+  }) => {
+    setPage(1);
+
+    setFiltersState((current) => {
+      const updated = { ...current };
+
+      if ("resolved" in newFilters) {
+        if (newFilters.resolved === null) {
+          delete updated.resolved;
+        } else {
+          updated.resolved = newFilters.resolved;
+        }
+      }
+
+      if ("severity" in newFilters) {
+        if (newFilters.severity === null) {
+          delete updated.severity;
+        } else {
+          updated.severity = newFilters.severity;
+        }
+      }
+
+      if ("vehicleId" in newFilters) {
+        const vehicleId = newFilters.vehicleId?.trim();
+
+        if (vehicleId) {
+          updated.vehicleId = vehicleId;
+        } else {
+          delete updated.vehicleId;
+        }
+      }
+
+      return updated;
+    });
+  };
 
   const nextPage = () => {
     setPage((current) => Math.min(current + 1, totalPages));
@@ -47,6 +90,8 @@ export const useAlerts = () => {
     total,
     loading,
     error,
+    filters,
+    updateFilters,
     nextPage,
     previousPage,
     refetch: fetchAlerts,

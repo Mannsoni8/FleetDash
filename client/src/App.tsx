@@ -61,6 +61,8 @@ const App = () => {
               onNextPage={alertData.nextPage}
               onPreviousPage={alertData.previousPage}
               onRefresh={alertData.refetch}
+              filters={alertData.filters}
+              onUpdateFilters={alertData.updateFilters}
             />
           }
         />

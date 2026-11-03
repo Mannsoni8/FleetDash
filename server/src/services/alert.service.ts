@@ -5,6 +5,7 @@ import type {
 } from "../types/alert.types.js";
 import { publishRealtimeEvent } from "../pubsub/publisher.js";
 import { REALTIME_EVENTS } from "../types/realtime.types.js";
+import { Vehicle } from "../models/vehicle.model.js";
 
 export interface GetAlertsFilters {
   severity?: "low" | "medium" | "high" | "critical";
@@ -42,11 +43,19 @@ export const getAlerts = async (filters: GetAlertsFilters) => {
   if (resolved !== undefined) query.resolved = resolved;
 
   if (vehicleId) {
-    if (!Types.ObjectId.isValid(vehicleId)) {
-      throw new Error("Invalid vehicle ID");
-    }
+    if (Types.ObjectId.isValid(vehicleId)) {
+      query.vehicleId = new Types.ObjectId(vehicleId);
+    } else {
+      const vehicle = await Vehicle.findOne({ vehicleId })
+        .select("_id")
+        .lean();
 
-    query.vehicleId = new Types.ObjectId(vehicleId);
+      if (!vehicle) {
+        throw new Error("Vehicle not found");
+      }
+
+      query.vehicleId = vehicle._id;
+    }
   }
 
   validatePagination(page, limit);
@@ -54,6 +63,7 @@ export const getAlerts = async (filters: GetAlertsFilters) => {
 
   const [alerts, total] = await Promise.all([
     Alert.find(query)
+      .populate("vehicleId", "vehicleId")
       .sort({ occurredAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -96,7 +106,7 @@ export const getAlertsByVehicle = async (
   }
 
   const query = { vehicleId: new Types.ObjectId(vehicleId) };
-  
+
   validatePagination(page, limit);
   const skip = (page - 1) * limit;
 
