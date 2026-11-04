@@ -1,12 +1,17 @@
-import { MapPin, Trash2, Bell, BellOff } from "lucide-react";
+import { MapPin, Trash2, Bell, BellOff, Pencil } from "lucide-react";
 import type { Geofence } from "../types/geofence";
 
 interface GeofenceListProps {
   geofences: Geofence[];
   onDelete: (id: string) => void;
+  onEdit: (geofence: Geofence) => void;
 }
 
-const GeofenceList = ({ geofences, onDelete }: GeofenceListProps) => {
+const GeofenceList = ({
+  geofences,
+  onDelete,
+  onEdit,
+}: GeofenceListProps) => {
   if (geofences.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
@@ -38,21 +43,31 @@ const GeofenceList = ({ geofences, onDelete }: GeofenceListProps) => {
               </p>
             </div>
 
-            <button
-              onClick={() => {
-                if (
-                  window.confirm(
-                    `Are you sure you want to delete ${geofence.name}?`
-                  )
-                ) {
-                  onDelete(geofence._id);
-                }
-              }}
-              className="rounded-lg p-2 text-red-500 hover:bg-red-50"
-              title="Delete geofence"
-            >
-              <Trash2 size={18} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onEdit(geofence)}
+                className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                title="Edit geofence"
+              >
+                <Pencil size={18} />
+              </button>
+
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Are you sure you want to delete ${geofence.name}?`
+                    )
+                  ) {
+                    onDelete(geofence._id);
+                  }
+                }}
+                className="rounded-lg p-2 text-red-500 hover:bg-red-50"
+                title="Delete geofence"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
