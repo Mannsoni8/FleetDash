@@ -3,6 +3,7 @@ import telemetryRouter from "./routes/telemetry.routes.js";
 import vehicleRouter from "./routes/vehicle.routes.js";
 import geofenceRouter from "./routes/geofence.routes.js";
 import alertRouter from "./routes/alert.routes.js";
+import authRouter from "./routes/auth.routes.js";
 import cors from "cors";
 
 const app = express();
@@ -24,6 +25,7 @@ app.use("/api/telemetry", telemetryRouter);
 app.use("/api/vehicles", vehicleRouter);
 app.use("/api/geofences", geofenceRouter);
 app.use("/api/alerts", alertRouter);
+app.use("/api/auth", authRouter);
 
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found" });
