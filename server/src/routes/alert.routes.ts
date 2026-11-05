@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { authenticate } from "../middleware/auth.middleware.js";
+import { authorize } from "../middleware/role.middleware.js";
 import {
     getAlertsController,
     getAlertByIdController,
@@ -7,6 +9,7 @@ import {
 } from "../controllers/alert.controller.js";
 
 const router = Router();
+router.use(authenticate, authorize("admin", "manager"));
 
 router.get("/", getAlertsController);
 router.get("/vehicle/:vehicleId", getAlertsByVehicleController);

@@ -4,13 +4,15 @@ import vehicleRouter from "./routes/vehicle.routes.js";
 import geofenceRouter from "./routes/geofence.routes.js";
 import alertRouter from "./routes/alert.routes.js";
 import authRouter from "./routes/auth.routes.js";
+import vehicleAssignmentRouter from "./routes/vehicle-assignment.routes.js";
 import cors from "cors";
+import config from "./config/env.js";
 
 const app = express();
 
 app.use(
     cors({
-        origin: "http://localhost:5173",
+        origin: config.CLIENT_URL,
         credentials: true,
     })
 );
@@ -26,6 +28,7 @@ app.use("/api/vehicles", vehicleRouter);
 app.use("/api/geofences", geofenceRouter);
 app.use("/api/alerts", alertRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/assignments", vehicleAssignmentRouter);
 
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found" });

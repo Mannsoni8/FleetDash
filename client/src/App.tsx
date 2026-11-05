@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useState } from "react";
 
 import DashboardLayout from "./components/layout/DashboardLayout";
 import DashboardPage from "./features/dashboard/components/DashboardPage";
@@ -10,15 +11,29 @@ import VehiclesPage from "./features/vehicles/pages/VehiclesPage";
 import AlertsPage from "./features/alerts/pages/AlertsPage";
 import TrackingPage from "./features/tracking/pages/TrackingPage";
 import GeofencesPage from "./features/geofences/pages/GeofencesPage";
+import LoginPage from "./features/auth/LoginPage";
+import { socket } from "./lib/socket";
 
 const App = () => {
+  const [authenticated, setAuthenticated] = useState(Boolean(localStorage.getItem("fleetdash.accessToken")));
+  if (!authenticated) return <LoginPage onLogin={() => setAuthenticated(true)} />;
+  const logout = () => {
+    localStorage.removeItem("fleetdash.accessToken");
+    socket.disconnect();
+    setAuthenticated(false);
+  };
+  return <AuthenticatedApp onLogout={logout} />;
+};
+
+const AuthenticatedApp = ({ onLogout }: { onLogout: () => void }) => {
   const realtime = useRealtime();
   const vehicleData = useVehicles();
   const alertData = useAlerts();
 
   return (
-    <DashboardLayout isConnected={realtime.isConnected}>
+    <DashboardLayout isConnected={realtime.isConnected} onLogout={onLogout}>
       <Routes>
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route
           path="/"
           element={

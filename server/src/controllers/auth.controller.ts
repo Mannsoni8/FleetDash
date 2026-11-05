@@ -18,9 +18,10 @@ export const registerController = async (
       return;
     }
 
-    if (!["manager", "driver"].includes(role)) {
+    // Public signup must never grant fleet-wide manager privileges.
+    if (role !== "driver") {
       res.status(400).json({
-        message: "Invalid registration role",
+        message: "Public registration is limited to driver accounts",
       });
       return;
     }
