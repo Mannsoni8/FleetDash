@@ -24,12 +24,53 @@ interface FleetMapProps {
 interface MapControllerProps {
   vehicles: TrackingVehicle[];
   selectedVehicle: TrackingVehicle | null;
+  selectedGeofence: Geofence | null;
 }
 
-const MapController = ({ vehicles, selectedVehicle }: MapControllerProps) => {
+interface FleetMapProps {
+  vehicles: TrackingVehicle[];
+  selectedVehicleId: string | null;
+  onSelectVehicle: (vehicleId: string) => void;
+  geofences?: Geofence[];
+  selectedGeofenceId?: string | null;
+}
+
+const MapController = ({
+  vehicles,
+  selectedVehicle,
+  selectedGeofence,
+}: MapControllerProps) => {
   const map = useMap();
 
   useEffect(() => {
+    if (selectedGeofence) {
+      let bounds: L.LatLngBounds;
+
+      if (selectedGeofence.geometry.type === "Circle") {
+        const [longitude, latitude] = selectedGeofence.geometry.coordinates;
+
+        bounds = L.circle([latitude, longitude], {
+          radius: selectedGeofence.radius ?? 0,
+        }).getBounds();
+      } else {
+        const positions = selectedGeofence.geometry.coordinates[0].map(
+          ([longitude, latitude]) => [latitude, longitude] as [number, number],
+        );
+
+        bounds = L.latLngBounds(positions);
+      }
+
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, {
+          padding: [60, 60],
+          maxZoom: 16,
+          animate: true,
+        });
+      }
+
+      return;
+    }
+
     if (selectedVehicle) {
       const { latitude, longitude } = selectedVehicle.currentLocation;
 
@@ -58,7 +99,7 @@ const MapController = ({ vehicles, selectedVehicle }: MapControllerProps) => {
         maxZoom: 14,
       });
     }
-  }, [map, vehicles, selectedVehicle]);
+  }, [map, vehicles, selectedVehicle, selectedGeofence]);
 
   return null;
 };
@@ -68,6 +109,7 @@ const FleetMap = ({
   selectedVehicleId,
   onSelectVehicle,
   geofences = [],
+  selectedGeofenceId = null,
 }: FleetMapProps) => {
   const validVehicles = vehicles.filter(({ currentLocation }) => {
     const { latitude, longitude } = currentLocation;
@@ -85,6 +127,9 @@ const FleetMap = ({
   const selectedVehicle =
     validVehicles.find((vehicle) => vehicle.vehicleId === selectedVehicleId) ??
     null;
+
+  const selectedGeofence =
+    geofences.find((geofence) => geofence._id === selectedGeofenceId) ?? null;
 
   return (
     <div className="h-[550px] w-full overflow-hidden rounded-2xl border border-slate-200">
@@ -104,6 +149,7 @@ const FleetMap = ({
         <MapController
           vehicles={validVehicles}
           selectedVehicle={selectedVehicle}
+          selectedGeofence={selectedGeofence}
         />
 
         {/* Geofence overlays */}

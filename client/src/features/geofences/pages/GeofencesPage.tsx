@@ -1,14 +1,30 @@
 import { Shield, RefreshCw } from "lucide-react";
 import { useGeofences } from "../hooks/useGeofences";
 import GeofenceList from "../components/GeofenceList";
+import GeofenceEditForm from "../components/GeofenceEditForm";
 import { useState } from "react";
 import GeofenceForm from "../components/GeofenceForm";
-import { createGeofence } from "../services/geofence.service";
-import type { CreateGeofenceInput } from "../types/geofence";
+import {
+  createGeofence,
+  updateGeofence,
+} from "../services/geofence.service";
+import type {
+  CreateGeofenceInput,
+  Geofence,
+} from "../types/geofence";
 
 const GeofencesPage = () => {
-  const { geofences, loading, error, refetch, removeGeofence } = useGeofences();
+  const {
+    geofences,
+    loading,
+    error,
+    refetch,
+    removeGeofence,
+  } = useGeofences();
+
   const [showForm, setShowForm] = useState(false);
+  const [selectedGeofence, setSelectedGeofence] =
+    useState<Geofence | null>(null);
 
   const handleCreate = async (data: CreateGeofenceInput) => {
     await createGeofence(data);
@@ -24,7 +40,23 @@ const GeofencesPage = () => {
     }
   };
 
-  const activeCount = geofences.filter((geofence) => geofence.isActive).length;
+  const handleUpdate = async (
+    id: string,
+    data: Partial<CreateGeofenceInput>
+  ) => {
+    await updateGeofence(id, data);
+    await refetch();
+    setSelectedGeofence(null);
+  };
+
+  const handleEdit = (geofence: Geofence) => {
+    setShowForm(false);
+    setSelectedGeofence(geofence);
+  };
+
+  const activeCount = geofences.filter(
+    (geofence) => geofence.isActive
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -38,18 +70,26 @@ const GeofencesPage = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => void refetch()}
-          disabled={loading}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-          <RefreshCw size={16} />
-          Refresh
-        </button>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-white">
-          + Create Geofence
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void refetch()}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedGeofence(null);
+              setShowForm(true);
+            }}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            + Create Geofence
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -77,7 +117,9 @@ const GeofencesPage = () => {
       <div>
         <div className="mb-3 flex items-center gap-2">
           <Shield size={19} className="text-blue-600" />
-          <h2 className="font-semibold text-slate-800">Your Geofences</h2>
+          <h2 className="font-semibold text-slate-800">
+            Your Geofences
+          </h2>
         </div>
 
         {showForm && (
@@ -87,12 +129,24 @@ const GeofencesPage = () => {
           />
         )}
 
+        {selectedGeofence && (
+          <GeofenceEditForm
+            geofence={selectedGeofence}
+            onSave={handleUpdate}
+            onCancel={() => setSelectedGeofence(null)}
+          />
+        )}
+
         {loading ? (
           <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500">
             Loading geofences...
           </div>
         ) : (
-          <GeofenceList geofences={geofences} onDelete={handleDelete} />
+          <GeofenceList
+            geofences={geofences}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+          />
         )}
       </div>
     </div>

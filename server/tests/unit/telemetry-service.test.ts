@@ -15,6 +15,10 @@ const mocks = vi.hoisted(() => ({
     workerProcess: vi.fn(),
     workerClose: vi.fn(),
     evaluateGeofenceTransitions: vi.fn(),
+    redisPublish: vi.fn(),
+}));
+vi.mock("../../src/config/redis.js", () => ({
+    redisPublisher: { publish: mocks.redisPublish },
 }));
 vi.mock("../../src/services/geofence.service.js", () => ({
     evaluateGeofenceTransitions: mocks.evaluateGeofenceTransitions,
@@ -93,6 +97,7 @@ describe("Telemetry service", () => {
         vi.resetAllMocks();
         mocks.bucketAggregate.mockResolvedValue([]);
         mocks.evaluateGeofenceTransitions.mockResolvedValue(undefined);
+        mocks.redisPublish.mockResolvedValue(1);
 
         vehicle = {
             _id: vehicleObjectId,
@@ -415,6 +420,20 @@ describe("Telemetry service", () => {
         expect(mocks.eventCreate).not.toHaveBeenCalled();
         expect(mocks.bucketUpdateOne).not.toHaveBeenCalled();
         expect(mocks.vehicleUpdateOne).not.toHaveBeenCalled();
+    });
+
+    it("keeps telemetry completed when Redis publication fails", async () => {
+        mocks.redisPublish.mockRejectedValueOnce(new Error("Redis unavailable"));
+
+        await expect(processTelemetry({
+            eventId: "evt-test-001",
+            vehicleId: "VH-001",
+            latitude: 22.3072,
+            longitude: 73.1812,
+            speed: 60,
+        })).resolves.toEqual({ vehicleId: "VH-001", timestamp });
+
+        expect(mocks.eventUpdateOne).toHaveBeenCalledOnce();
     });
 
     it("reuses the existing event after a duplicate-key race", async () => {

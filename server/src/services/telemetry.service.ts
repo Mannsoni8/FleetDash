@@ -269,17 +269,23 @@ export const processTelemetry = async (
         });
 
         // Publish only after telemetry and geofence processing succeeds.
-        await publishRealtimeEvent(
-            REALTIME_EVENTS.TELEMETRY_UPDATE,
-            {
-                eventId: reading.eventId,
-                vehicleId: vehicle.vehicleId,
-                latitude: reading.latitude,
-                longitude: reading.longitude,
-                speed: reading.speed,
-                timestamp: reading.timestamp.toISOString(),
-            },
-        );
+        try {
+            await publishRealtimeEvent(
+                REALTIME_EVENTS.TELEMETRY_UPDATE,
+                {
+                    eventId: reading.eventId,
+                    vehicleId: vehicle.vehicleId,
+                    latitude: reading.latitude,
+                    longitude: reading.longitude,
+                    speed: reading.speed,
+                    timestamp: reading.timestamp.toISOString(),
+                },
+            );
+        } catch (error) {
+            // Telemetry is already persisted; transient Redis failure must not
+            // keep the idempotency event pending or force a duplicate retry.
+            console.error("Failed to publish telemetry update:", error);
+        }
     }
 
     await TelemetryEvent.updateOne(

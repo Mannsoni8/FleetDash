@@ -6,8 +6,11 @@ import {
     getGeofencesController,
     updateGeofenceController,
 } from "../controllers/geofence.controller.js";
+import { authenticate } from "../middleware/auth.middleware.js";
+import { authorize } from "../middleware/role.middleware.js";
 
 const router = Router();
+router.use(authenticate, authorize("admin", "manager"));
 
 router.post("/", createGeofenceController);
 router.get("/", getGeofencesController);

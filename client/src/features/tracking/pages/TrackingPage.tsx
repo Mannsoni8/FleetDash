@@ -7,11 +7,7 @@ import { useVehicleTracking } from "../hooks/useVehicleTracking";
 import { useGeofences } from "../../geofences/hooks/useGeofences";
 
 const TrackingPage = () => {
-  const {
-    vehicles,
-    loading,
-    error,
-  } = useVehicleTracking();
+  const { vehicles, loading, error } = useVehicleTracking();
 
   const {
     geofences,
@@ -19,21 +15,31 @@ const TrackingPage = () => {
     error: geofencesError,
   } = useGeofences();
 
-  const [selectedVehicleId, setSelectedVehicleId] =
-    useState<string | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
+    null,
+  );
+
+  const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(
+    null,
+  );
 
   const selectedVehicle =
-    vehicles.find(
-      (vehicle) => vehicle.vehicleId === selectedVehicleId
-    ) ?? null;
+    vehicles.find((vehicle) => vehicle.vehicleId === selectedVehicleId) ?? null;
 
   const onlineVehicles = vehicles.filter(
-    (vehicle) => vehicle.status === "online"
+    (vehicle) => vehicle.status === "online",
   ).length;
 
   const activeGeofences = geofences.filter(
-    (geofence) => geofence.isActive
+    (geofence) => geofence.isActive,
   ).length;
+
+  const handleSelectGeofence = (geofenceId: string) => {
+    setSelectedVehicleId(null);
+    setSelectedGeofenceId((current) =>
+      current === geofenceId ? null : geofenceId,
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -141,8 +147,12 @@ const TrackingPage = () => {
             <FleetMap
               vehicles={vehicles}
               selectedVehicleId={selectedVehicleId}
-              onSelectVehicle={setSelectedVehicleId}
+              onSelectVehicle={(id) => {
+                setSelectedGeofenceId(null);
+                setSelectedVehicleId(id);
+              }}
               geofences={geofences}
+              selectedGeofenceId={selectedGeofenceId}
             />
           )}
         </div>
@@ -166,15 +176,12 @@ const TrackingPage = () => {
               {vehicles.map((vehicle) => (
                 <button
                   key={vehicle.vehicleId}
-                  onClick={() =>
-                    setSelectedVehicleId(vehicle.vehicleId)
-                  }
+                  onClick={() => setSelectedVehicleId(vehicle.vehicleId)}
                   className={`w-full rounded-xl border p-3 text-left transition ${
                     selectedVehicleId === vehicle.vehicleId
                       ? "border-blue-300 bg-blue-50"
                       : "border-slate-100 hover:bg-slate-50"
-                  }`}
-                >
+                  }`}>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">
                       {vehicle.registrationNumber}
@@ -200,8 +207,55 @@ const TrackingPage = () => {
               ))}
 
               {vehicles.length === 0 && (
+                <p className="text-sm text-slate-500">No vehicles available.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+            <h3 className="mb-3 font-semibold text-slate-800">
+              Geofence Zones
+            </h3>
+
+            <div className="space-y-2">
+              {geofences
+                .filter((geofence) => geofence.isActive)
+                .map((geofence) => (
+                  <button
+                    key={geofence._id}
+                    onClick={() => handleSelectGeofence(geofence._id)}
+                    className={`w-full rounded-xl border p-3 text-left transition ${
+                      selectedGeofenceId === geofence._id
+                        ? "border-blue-300 bg-blue-50"
+                        : "border-slate-100 hover:bg-slate-50"
+                    }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-700">
+                        {geofence.name}
+                      </span>
+
+                      <MapPin
+                        size={16}
+                        className={
+                          selectedGeofenceId === geofence._id
+                            ? "text-blue-600"
+                            : "text-slate-400"
+                        }
+                      />
+                    </div>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      {geofence.geometry.type} geofence
+                      {geofence.geometry.type === "Circle"
+                        ? ` · ${geofence.radius} m`
+                        : ""}
+                    </p>
+                  </button>
+                ))}
+
+              {activeGeofences === 0 && (
                 <p className="text-sm text-slate-500">
-                  No vehicles available.
+                  No active geofences available.
                 </p>
               )}
             </div>

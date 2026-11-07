@@ -6,11 +6,13 @@ import Header from "./Header";
 interface DashboardLayoutProps {
   children: ReactNode;
   isConnected: boolean;
+  onLogout: () => void;
 }
 
 const DashboardLayout = ({
   children,
   isConnected,
+  onLogout,
 }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
    
@@ -25,6 +27,7 @@ const DashboardLayout = ({
         <Header
           isConnected={isConnected}
           onMenuClick={() => setSidebarOpen(true)}
+          onLogout={onLogout}
         />
 
         <div className="space-y-8 p-5 sm:p-8">

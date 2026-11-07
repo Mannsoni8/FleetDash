@@ -7,4 +7,5 @@ export const socket = io(SOCKET_URL, {
   autoConnect: false,
   withCredentials: true,
   transports: ["websocket", "polling"],
+  auth: (callback) => callback({ token: localStorage.getItem("fleetdash.accessToken") }),
 });
